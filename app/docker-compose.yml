@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DD_TRACE_ENABLED=false
+      - DD_AGENT_HOST=localhost
+    volumes:
+      - ./src:/app/src

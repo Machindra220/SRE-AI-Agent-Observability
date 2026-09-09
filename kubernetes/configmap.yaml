@@ -1,0 +1,9 @@
+apiVersion: v1 
+kind: ConfigMap
+metadata:
+  name: sre-ai-agent-config
+  namespace: sre-ai-agent
+data:
+  APP_ENV: "dev"
+  APP_VERSION: "1.0.0"
+  LOG_LEVEL: "info"

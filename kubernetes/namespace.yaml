@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sre-ai-agent
+  labels:
+    app: sre-ai-agent
+    environment: dev

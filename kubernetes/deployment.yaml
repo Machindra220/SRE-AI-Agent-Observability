@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-ai-agent
+  namespace: sre-ai-agent
+  labels:
+    app: sre-ai-agent
+    environment: dev
+    tags.datadoghq.com/env: "dev"
+    tags.datadoghq.com/service: "sre-ai-agent"
+    tags.datadoghq.com/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sre-ai-agent
+  template:
+    metadata:
+      labels:
+        app: sre-ai-agent
+        environment: dev
+        apiVersion: "1.0.0"
+        tags.datadoghq.com/env: "dev"
+        tags.datadoghq.com/service: "sre-ai-agent"
+        tags.datadoghq.com/version: "1.0.0"
+      annotations:
+        # Tells Datadog agent to inject APM library automatically
+        admission.datadoghq.com/enabled: "true"
+    spec:
+      containers:
+        - name: sre-ai-agent
+          image: 502274764708.dkr.ecr.us-east-1.amazonaws.com/sre-ai-agent-dev-ecr-api:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_TRACE_ENABLED
+              value: "true"
+            - name: DD_ENV
+              value: "dev"
+            - name: DD_SERVICE
+              value: "sre-ai-agent"
+            - name: DD_VERSION
+              value: "1.0.0"
+            # Enable runtime metrics
+            - name: DD_RUNTIME_METRICS_ENABLED
+              value: "true"
+            # Enable logs injection - correlates logs with traces
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            # APM port
+            - name: DD_TRACE_AGENT_PORT
+              value: "8126"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+    

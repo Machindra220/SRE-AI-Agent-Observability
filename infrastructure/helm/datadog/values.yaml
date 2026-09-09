@@ -1,0 +1,77 @@
+datadog:
+  # API key loaded from Kubernetes secret - never hardcoded
+  apiKeyExistingSecret: datadog-secret
+  appKeyExistingSecret: datadog-secret
+
+  # Unified service tagging - correlates metrics, logs, traces
+  site: datadoghq.com
+
+  # Container log collection
+  logs:
+    enabled: true
+    containerCollectAll: true
+
+  # APM trace collection
+  apm:
+    portEnabled: true
+    port: 8126
+
+  # Process monitoring
+  processAgent:
+    enabled: true
+    processCollection: true
+
+  # Kubernetes state metrics
+  kubeStateMetricsEnabled: true
+  kubeStateMetricsCore:
+    enabled: true
+
+  # Collect Kubernetes events
+  collectEvents: true
+
+  # Network Performance Monitoring - disabled (costs extra)
+  networkMonitoring:
+    enabled: false
+
+  # Tags applied to all metrics/logs/traces
+  tags:
+    - "env:dev"
+    - "project:sre-ai-agent"
+    - "cluster:sre-ai-agent-dev-eks-cluster"
+
+# Cluster Agent - collects cluster-level metrics
+clusterAgent:
+  enabled: true
+  # Allows cluster agent to collect metrics from Kubernetes API
+  metricsProvider:
+    enabled: true
+
+# Node Agent - runs on every node as DaemonSet
+agents:
+  # Resource limits for agent on t3.small
+  # Important: agent must not starve our app
+  containers:
+    agent:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 256m
+          memory: 512Mi
+    traceAgent:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+    processAgent:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi

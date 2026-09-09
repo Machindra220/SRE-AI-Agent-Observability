@@ -1,0 +1,7 @@
+# Windows Zone.Identifier files
+*Zone.Identifier
+*:Zone.Identifier
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

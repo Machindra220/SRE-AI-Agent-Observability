@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sre-ai-agent
+  namespace: sre-ai-agent
+  labels:
+    app: sre-ai-agent
+spec:
+  type: LoadBalancer
+  selector:
+    app: sre-ai-agent
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          cd app 
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: | 
+          cd app 
+          python -m pytest tests/ -v 
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code 
+        uses: actions/checkout@v4 
+
+      - name: Build Docker Image 
+        run: |
+          docker build -t sre-ai-agent:${{ github.sha }} ./app
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 
+
+      - name: Build image for scanning
+        run: docker build -t sre-ai-agent:${{ github.sha }} ./app 
+
+      - name: Run Trivy security scan 
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: sre-ai-agent:${{ github.sha }}
+          format: table
+          exit-code: 0
+          severity: HIGH,CRITICAL
+          
