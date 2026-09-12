@@ -95,7 +95,10 @@ def chunk_text(text: str) -> list[str]:
                 chunk = text[start:start + boundary + 1]
 
         chunks.append(chunk.strip())
-        start += len(chunk) - CHUNK_OVERLAP
+        advance = len(chunk) - CHUNK_OVERLAP
+        if advance <= 0:          # prevent infinite loop
+            advance = CHUNK_SIZE  # force forward progress
+        start += advance
 
     return [c for c in chunks if len(c) > 20]  # skip tiny leftover chunks
 

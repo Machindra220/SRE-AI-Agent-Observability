@@ -10,15 +10,15 @@
 langgraph==0.2.28          # LangGraph state machine framework
 langchain==0.3.1           # LangChain core utilities
 
-# ── LLM — Anthropic Claude ───────────────────────────────────
-anthropic==0.34.2          # Claude API client (used directly in diagnoser.py)
-
-# ── Embeddings ────────────────────────────────────────────────
-sentence-transformers==3.1.1   # all-MiniLM-L6-v2 embedding model
+# ── LLM + Embeddings — Google Gemini ─────────────────────────
+google-generativeai==0.8.3 # Gemini API — used for both LLM and embeddings
+                           # LLM: gemini-1.5-flash (diagnoser.py)
+                           # Embeddings: text-embedding-004 (embeddings.py)
+                           # Free tier, no local model, zero RAM spike
 
 # ── Vector Database ───────────────────────────────────────────
-psycopg2-binary==2.9.9     # PostgreSQL driver (binary = no build deps needed)
-pgvector==0.3.2            # pgvector Python adapter for vector column type
+psycopg2-binary==2.9.10    # PostgreSQL driver
+pgvector==0.3.2            # pgvector Python adapter
 
 # ── API Server ────────────────────────────────────────────────
 fastapi==0.115.0           # FastAPI web framework
@@ -28,5 +28,5 @@ uvicorn==0.30.6            # ASGI server to run FastAPI
 ddtrace==2.11.3            # Datadog APM tracing
 
 # ── Utilities ─────────────────────────────────────────────────
-pydantic==2.9.2            # Request/response validation (used by FastAPI)
+pydantic==2.9.2            # Request/response validation
 python-dotenv==1.0.1       # Load .env file for local development
