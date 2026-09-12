@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 # gemini-1.5-flash — fast, free tier, good quality for SRE diagnosis
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-2.5-flash"
 
 LOW_CONFIDENCE_THRESHOLD = 0.60
 MAX_RETRIES = 2
@@ -91,7 +91,7 @@ def diagnose(state: AgentState) -> AgentState:
 
     try:
         # Initialise Gemini model
-        model = genai.GenerativeModel(MODEL)
+        model = genai.GenerativeModel("gemini-3.5-flash")
 
         # Call Gemini API
         # response.text — Gemini returns text directly

@@ -35,7 +35,7 @@ ALERT_TYPE_MAP = {
 # Maps alert_type → optimised RAG search query
 # More specific queries retrieve better runbook matches
 SEARCH_QUERY_MAP = {
-    "high_error_rate": "high error rate 5xx 500 errors service failing",
+    "high_error_rate": "high error rate 5xx 500 errors api returning 500 internal server error",
     "high_latency":    "high latency p99 slow response time degraded performance",
     "pod_restart":     "pod restarting crashloop OOMKilled container restart",
     "availability":    "service down no traffic availability SLO breach",

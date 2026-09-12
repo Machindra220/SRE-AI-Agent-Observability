@@ -26,11 +26,11 @@ RUNBOOKS_DIR = Path("docs/runbooks")
 
 # Chunk size: how many characters per chunk
 # 500 chars ≈ 3-5 sentences — small enough for precise retrieval
-CHUNK_SIZE = 500
+CHUNK_SIZE = 800
 
 # Chunk overlap: how many chars to repeat between chunks
 # Overlap prevents cutting a sentence in half at chunk boundaries
-CHUNK_OVERLAP = 50
+CHUNK_OVERLAP = 100
 
 # PostgreSQL connection — reads from environment variables
 # Set these in your shell or .env file before running

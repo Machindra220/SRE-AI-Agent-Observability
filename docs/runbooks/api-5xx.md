@@ -6,51 +6,71 @@
 ## Impact
 Users receiving 500 errors. Service degraded but partially available.
 
-## Initial Checks
+## Diagnosis Steps
 
-### 1. Check error traces in APM
-Datadog → APM → Traces
-Filter: service:sre-ai-agent status:error
-
-Look for: which endpoint, what exception, stack trace
-
-### 2. Check error logs
-Datadog → Logs
-Filter: service:sre-ai-agent status:error
-
-
-### 3. Check pod status
+### 1. Check pod status
 ```bash
 kubectl get pods -n sre-ai-agent
 kubectl describe pod -n sre-ai-agent -l app=sre-ai-agent
 ```
+Expected: pods in Running state. If CrashLoopBackOff → check logs.
 
-### 4. Check recent deployments
+### 2. Check application logs
+```bash
+kubectl logs -n sre-ai-agent -l app=sre-ai-agent --tail=100
+kubectl logs -n sre-ai-agent -l app=sre-ai-agent --previous
+```
+Look for: exceptions, stack traces, connection errors, OOM errors.
+
+### 3. Check recent deployments
 ```bash
 kubectl rollout history deployment/sre-ai-agent -n sre-ai-agent
 ```
+If recent deploy → likely root cause → rollback immediately.
 
-## Possible Causes
+### 4. Check error endpoints in Datadog
+Filter: service:sre-ai-agent status:error
+Look for: which endpoints returning 500, error frequency, pattern.
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| All endpoints failing | App bug | Rollback deployment |
-| One endpoint failing | Specific bug | Fix and redeploy |
-| Started after deploy | Bad deployment | Rollback |
-| Random failures | Resource pressure | Scale up or increase limits |
-
-## Mitigation
-
-### Rollback deployment
+### 5. Check resource limits
 ```bash
-kubectl rollout undo deployment/sre-ai-agent -n sre-ai-agent
-```
-
-### Check and increase resources
-```bash
+kubectl top pods -n sre-ai-agent
 kubectl describe pod -n sre-ai-agent -l app=sre-ai-agent | grep -A5 "Limits"
 ```
 
+## Mitigation
+
+### Rollback deployment (if deploy caused issue)
+```bash
+kubectl rollout undo deployment/sre-ai-agent -n sre-ai-agent
+kubectl rollout status deployment/sre-ai-agent -n sre-ai-agent
+```
+
+### Restart pods (if stuck/deadlock)
+```bash
+kubectl rollout restart deployment/sre-ai-agent -n sre-ai-agent
+```
+
+### Scale up (if resource pressure)
+```bash
+kubectl scale deployment sre-ai-agent --replicas=3 -n sre-ai-agent
+```
+
+## Root Cause Patterns
+| Symptom | Cause | Fix |
+|---|---|---|
+| All endpoints failing | App bug or bad deploy | Rollback deployment |
+| One endpoint failing | Specific code bug | Fix and redeploy |
+| Started after deploy | Bad deployment | Rollback |
+| Random failures | Resource pressure | Scale up or increase limits |
+| OOMKilled in logs | Memory limit too low | Increase memory limits |
+
 ## Recovery Validation
-Datadog → Monitors → [sre-ai-agent] High Error Rate
-Status should return to OK within 5 minutes
+```bash
+curl http://${LB}/api/health
+curl http://${LB}/api/normal
+```
+Status should return to OK within 5 minutes.
+
+## Escalation
+If not resolved in 30 minutes → escalate to senior engineer.
