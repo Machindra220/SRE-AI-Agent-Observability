@@ -16,6 +16,10 @@ google-generativeai==0.8.3 # Gemini API — used for both LLM and embeddings
                            # Embeddings: text-embedding-004 (embeddings.py)
                            # Free tier, no local model, zero RAM spike
 
+# ── Embeddings (lightweight local — no torch/CUDA required) ───
+fastembed==0.3.6           # CPU-native embeddings, no GPU needed
+                           # Model: BAAI/bge-small-en-v1.5 (~130MB, 384-dim)
+
 # ── Vector Database ───────────────────────────────────────────
 psycopg2-binary==2.9.10    # PostgreSQL driver
 pgvector==0.3.2            # pgvector Python adapter
@@ -30,3 +34,4 @@ ddtrace==2.11.3            # Datadog APM tracing
 # ── Utilities ─────────────────────────────────────────────────
 pydantic==2.9.2            # Request/response validation
 python-dotenv==1.0.1       # Load .env file for local development
+

@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS runbook_chunks (
     id          SERIAL PRIMARY KEY,
     source      TEXT NOT NULL,        -- e.g. "api-5xx.md"
     content     TEXT NOT NULL,        -- the actual runbook text chunk
-    embedding   vector(768),          -- 768-dim vector from Gemini text-embedding-004
+    embedding   vector(384),          -- 768-dim vector from Gemini text-embedding-004
     created_at  TIMESTAMP DEFAULT NOW()
 );
 
