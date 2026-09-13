@@ -35,3 +35,4 @@ ddtrace==2.11.3            # Datadog APM tracing
 pydantic==2.9.2            # Request/response validation
 python-dotenv==1.0.1       # Load .env file for local development
 
+markdown==3.6  # RCA markdown → HTML conversion

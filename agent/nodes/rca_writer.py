@@ -72,7 +72,7 @@ def write_rca(state: AgentState) -> AgentState:
     confidence_warning = ""
     if confidence < 0.60:
         confidence_warning = (
-            "\n> ⚠️ **LOW CONFIDENCE** — AI diagnosis confidence is below 60%. "
+            "\n> ⚠️ **|Human Review** — AI diagnosis confidence is below 60%. "
             "This report requires human review before action.\n"
         )
 
