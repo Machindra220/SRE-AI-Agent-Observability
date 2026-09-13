@@ -109,12 +109,6 @@ This project directly satisfies all three in one working system.
 
 ---
 
-## Complete Request Flow
-
-![SRE AI Agent Flow](../images/phase19-agent-flow.svg)
-
-
----
 
 ## 4. How an Alert Reaches the Agent
 
@@ -788,3 +782,11 @@ flowchart TD
     N3 --> N4[Node 4: rca_writer\nformat RCA report]
     N4 --> OUT[RCA JSON response\nrunbook_used + confidence + report]
 ```
+---
+
+## Complete Request Flow
+
+![SRE AI Agent Flow](../images/phase19-agent-flow.svg)
+
+
+---
