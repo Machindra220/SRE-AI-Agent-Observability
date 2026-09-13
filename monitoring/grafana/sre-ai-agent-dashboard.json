@@ -1,0 +1,234 @@
+{
+  "title": "SRE AI Agent — Quality Dashboard",
+  "description": "AI observability metrics for the SRE AI Agent — confidence, context recall, RCA completeness, keyword hit rate",
+  "tags": ["sre", "ai", "llm", "evals"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Context Recall (Right Runbook Found?)",
+      "description": "Fraction of alerts where RAG retrieved the correct runbook. Target: > 0.85",
+      "type": "gauge",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "minVizHeight": 75,
+        "minVizWidth": 75
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": 0 },
+              { "color": "yellow", "value": 0.7 },
+              { "color": "green",  "value": 0.85 }
+            ]
+          },
+          "mappings": []
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "sre_agent_eval_context_recall",
+        "legendFormat": "Context Recall"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Avg LLM Confidence",
+      "description": "Average confidence score returned by Gemini across all test cases. Target: > 0.60",
+      "type": "gauge",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": 0 },
+              { "color": "yellow", "value": 0.4 },
+              { "color": "green",  "value": 0.6 }
+            ]
+          }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "sre_agent_eval_confidence_avg",
+        "legendFormat": "Avg Confidence"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "RCA Completeness",
+      "description": "Fraction of RCAs containing all required sections (Root Cause, Evidence, Immediate Steps). Target: > 0.90",
+      "type": "gauge",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": 0 },
+              { "color": "yellow", "value": 0.6 },
+              { "color": "green",  "value": 0.9 }
+            ]
+          }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "sre_agent_eval_rca_completeness",
+        "legendFormat": "RCA Completeness"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Keyword Hit Rate",
+      "description": "Fraction of expected keywords found in generated RCAs. Target: > 0.75",
+      "type": "gauge",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": 0 },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green",  "value": 0.75 }
+            ]
+          }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "sre_agent_eval_keyword_hit_rate",
+        "legendFormat": "Keyword Hit Rate"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Per-Alert Confidence Score",
+      "description": "LLM confidence score broken down per test case. OOMKilled should be highest.",
+      "type": "bargauge",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": 0 },
+              { "color": "yellow", "value": 0.4 },
+              { "color": "green",  "value": 0.7 }
+            ]
+          }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "sre_agent_eval_case_confidence",
+        "legendFormat": "{{alert_name}} ({{test_case_id}})"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Eval Pass Rate",
+      "description": "Overall fraction of test cases passing all eval criteria. Target: > 0.70",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 8, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": 0 },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green",  "value": 0.7 }
+            ]
+          }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "sre_agent_eval_pass_rate",
+        "legendFormat": "Pass Rate"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Total Eval Runs",
+      "description": "How many times the eval suite has been run.",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 8, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": 0 }]
+          }
+        }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus" },
+        "expr": "sre_agent_eval_runs_total",
+        "legendFormat": "Eval Runs"
+      }]
+    }
+  ],
+  "schemaVersion": 38,
+  "version": 1
+}

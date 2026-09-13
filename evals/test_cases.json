@@ -1,0 +1,140 @@
+[
+  {
+    "id": "tc-001",
+    "description": "Pod OOMKilled \u2014 most specific alert, should get high confidence",
+    "alert": {
+      "alert_name": "Pod Restart Rate High",
+      "severity": "P2",
+      "service": "sre-ai-agent",
+      "message": "Pod restarted 5 times in last 10 minutes, OOMKilled"
+    },
+    "expected_runbook": "pod-restarts.md",
+    "expected_keywords": [
+      "OOMKilled",
+      "memory",
+      "limit",
+      "kubectl"
+    ],
+    "expected_rca_sections": [
+      "Root Cause",
+      "Evidence",
+      "Immediate Steps"
+    ],
+    "expected_min_confidence": 0.7
+  },
+  {
+    "id": "tc-002",
+    "description": "High error rate \u2014 generic alert, lower confidence expected",
+    "alert": {
+      "alert_name": "High Error Rate",
+      "severity": "P2",
+      "service": "sre-ai-agent",
+      "message": "12% of requests returning 500 errors in last 5 minutes"
+    },
+    "expected_runbook": "api-5xx.md",
+    "expected_keywords": [
+      "500",
+      "error",
+      "kubectl",
+      "logs"
+    ],
+    "expected_rca_sections": [
+      "Root Cause",
+      "Evidence",
+      "Immediate Steps"
+    ],
+    "expected_min_confidence": 0.2
+  },
+  {
+    "id": "tc-003",
+    "description": "High p99 latency \u2014 should retrieve latency runbook",
+    "alert": {
+      "alert_name": "High p99 Latency",
+      "severity": "P3",
+      "service": "sre-ai-agent",
+      "message": "p99 latency is 4.2s, threshold is 2s"
+    },
+    "expected_runbook": "high-latency.md",
+    "expected_keywords": [
+      "latency",
+      "p99",
+      "kubectl",
+      "scale"
+    ],
+    "expected_rca_sections": [
+      "Root Cause",
+      "Evidence",
+      "Immediate Steps"
+    ],
+    "expected_min_confidence": 0.2
+  },
+  {
+    "id": "tc-004",
+    "description": "API availability \u2014 complete service outage",
+    "alert": {
+      "alert_name": "API Availability No Traffic",
+      "severity": "P1",
+      "service": "sre-ai-agent",
+      "message": "No traffic detected, service appears down"
+    },
+    "expected_runbook": "api-availability.md",
+    "expected_keywords": [
+      "availability",
+      "kubectl",
+      "pod",
+      "service"
+    ],
+    "expected_rca_sections": [
+      "Root Cause",
+      "Evidence",
+      "Immediate Steps"
+    ],
+    "expected_min_confidence": 0.1
+  },
+  {
+    "id": "tc-005",
+    "description": "CrashLoopBackOff \u2014 specific k8s failure mode",
+    "alert": {
+      "alert_name": "Pod Restart Rate High",
+      "severity": "P2",
+      "service": "sre-ai-agent",
+      "message": "Pod in CrashLoopBackOff, restarting every 30 seconds"
+    },
+    "expected_runbook": "pod-restarts.md",
+    "expected_keywords": [
+      "CrashLoopBackOff",
+      "logs",
+      "kubectl",
+      "previous"
+    ],
+    "expected_rca_sections": [
+      "Root Cause",
+      "Evidence",
+      "Immediate Steps"
+    ],
+    "expected_min_confidence": 0.1
+  },
+  {
+    "id": "tc-006",
+    "description": "SLO burn rate \u2014 availability dropping",
+    "alert": {
+      "alert_name": "SLO Burn Rate Critical",
+      "severity": "P1",
+      "service": "sre-ai-agent",
+      "message": "Error budget burning at 10x rate, availability dropping below 99%"
+    },
+    "expected_runbook": "api-availability.md",
+    "expected_keywords": [
+      "availability",
+      "SLO",
+      "error",
+      "kubectl"
+    ],
+    "expected_rca_sections": [
+      "Root Cause",
+      "Evidence",
+      "Immediate Steps"
+    ],
+    "expected_min_confidence": 0.1
+  }
+]

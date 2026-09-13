@@ -1,0 +1,32 @@
+# HELP sre_agent_eval_confidence_avg Average LLM confidence score across all eval test cases. Range: 0.0-1.0. Target: > 0.60
+# TYPE sre_agent_eval_confidence_avg gauge
+sre_agent_eval_confidence_avg 0.24
+# HELP sre_agent_eval_context_recall Fraction of test cases where RAG retrieved the correct runbook. Range: 0.0-1.0. Target: > 0.85
+# TYPE sre_agent_eval_context_recall gauge
+sre_agent_eval_context_recall 1.0
+# HELP sre_agent_eval_rca_completeness Fraction of RCA reports containing all required sections (Root Cause, Evidence, Immediate Steps). Range: 0.0-1.0. Target: > 0.90
+# TYPE sre_agent_eval_rca_completeness gauge
+sre_agent_eval_rca_completeness 0.67
+# HELP sre_agent_eval_keyword_hit_rate Fraction of expected keywords found in generated RCA reports. Measures groundedness — does the RCA mention what it should? Range: 0.0-1.0. Target: > 0.75
+# TYPE sre_agent_eval_keyword_hit_rate gauge
+sre_agent_eval_keyword_hit_rate 0.75
+# HELP sre_agent_eval_pass_rate Fraction of test cases that passed all eval criteria. Range: 0.0-1.0. Target: > 0.70
+# TYPE sre_agent_eval_pass_rate gauge
+sre_agent_eval_pass_rate 0.50
+# HELP sre_agent_eval_case_confidence LLM confidence score per test case.
+# TYPE sre_agent_eval_case_confidence gauge
+sre_agent_eval_case_confidence{alert_name="Pod Restart Rate High",test_case_id="tc-001"} 0.95
+sre_agent_eval_case_confidence{alert_name="High Error Rate",test_case_id="tc-002"} 0.30
+sre_agent_eval_case_confidence{alert_name="High p99 Latency",test_case_id="tc-003"} 0.30
+sre_agent_eval_case_confidence{alert_name="API Availability No Traffic",test_case_id="tc-004"} 0.10
+sre_agent_eval_case_confidence{alert_name="Pod Restart Rate High",test_case_id="tc-005"} 0.30
+sre_agent_eval_case_confidence{alert_name="SLO Burn Rate Critical",test_case_id="tc-006"} 0.10
+# HELP sre_agent_eval_runs_total Total number of eval suite runs since process start.
+# TYPE sre_agent_eval_runs_total counter
+sre_agent_eval_runs_total 1.0
+# HELP sre_agent_eval_passed_total Total number of individual test cases that passed.
+# TYPE sre_agent_eval_passed_total counter
+sre_agent_eval_passed_total 3.0
+# HELP sre_agent_eval_failed_total Total number of individual test cases that failed.
+# TYPE sre_agent_eval_failed_total counter
+sre_agent_eval_failed_total 3.0

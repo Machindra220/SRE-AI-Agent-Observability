@@ -36,3 +36,6 @@ pydantic==2.9.2            # Request/response validation
 python-dotenv==1.0.1       # Load .env file for local development
 
 markdown==3.6  # RCA markdown → HTML conversion
+
+prometheus-client==0.20.0  # export eval scores to Prometheus
+requests==2.34.2           # HTTP calls to agent in eval runner

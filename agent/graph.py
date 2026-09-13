@@ -71,7 +71,6 @@ def build_graph() -> StateGraph:
     # Step 7: Compile — validates graph structure and returns executable graph
     return graph.compile()
 
-
 # Module-level compiled graph instance
 # Imported by main.py so the graph is compiled once at startup
 agent_graph = build_graph()
