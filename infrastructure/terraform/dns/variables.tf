@@ -33,9 +33,9 @@ variable "k8s_namespace" {
   default = "sre-ai-agent"
 }
 
-# EKS LB hostname - update this after running/each infra-up.sh 
-# variable "elb_hostname" {
-#   description = "EKS LoadBalancer hostname from kubectl get svc"
-#   type = string
-#   default = "a088aea33803f4c038ce5781a63dbbab-2089612467.us-east-1.elb.amazonaws.com"
-# }
+#EKS LB hostname - update this after running/each infra-up.sh 
+variable "elb_hostname" {
+  description = "EKS LoadBalancer hostname from kubectl get svc"
+  type = string
+  default = "a89d7170b820d42edb6b2366ee4ddab1-603256971.us-east-1.elb.amazonaws.com"
+}

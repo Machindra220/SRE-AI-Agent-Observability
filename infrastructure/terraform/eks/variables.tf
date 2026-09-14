@@ -45,3 +45,9 @@ variable "eks_node_max" {
   type        = number
   default     = 2
 }
+
+variable "agent_node_instance_type" {
+  description = "EC2 Instance type for AI Agent EKS node"
+  type        = string
+  default     = "t3.medium"
+}

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sre-ai-agent-llm
+  labels:
+    app: sre-ai-agent-llm
+    project: sre-ai-agent

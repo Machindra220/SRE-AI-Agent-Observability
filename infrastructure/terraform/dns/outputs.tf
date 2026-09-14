@@ -12,8 +12,8 @@ output "hosted_zone_id" {
 
 # Dynamically resolved ELB hostname
 output "elb_hostname" {
-  description = "Current ELB hostname fetched from kubernetes service"
-  value = data.kubernetes_service.app.status.0.load_balancer.0.ingress.0.hostname 
+  description = "ELB hostname from var.elb_hostname (update after infra-up)"
+  value = var.elb_hostname
 }
 
 # Full subdomain URL

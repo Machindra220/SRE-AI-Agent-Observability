@@ -1,6 +1,8 @@
 # Manages Route 53 hosted zone and CNAME record.
 # CNAME value is fetched dynamically from the live Kubernetes
-# LoadBalancer service — no hardcoded ELB hostnames.
+# LoadBalancer service — no hardcoded ELB hostnames. OR
+# CNAME value uses var.elb_hostname — update variables.tf
+# with new ELB hostname after each infra-up.sh run.
 # Run terraform apply after every infra-up.sh to sync CNAME.
 # ─────────────────────────────────────────────────────────────
 
@@ -44,5 +46,5 @@ resource "aws_route53_record" "sre_cname" {
   type = "CNAME"
   ttl = 300
   # Dynamically resolved from live Kubernetes LoadBalancer service
-  records = [data.kubernetes_service.app.status.0.load_balancer.0.ingress.0.hostname]
+  records = [var.elb_hostname]
 }

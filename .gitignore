@@ -8,3 +8,13 @@ __pycache__/
 .env
 nohup.out
 .venv/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+.terraform.lock.hcl
+
+# K8s secrets
+kubernetes/agent-secret.yaml

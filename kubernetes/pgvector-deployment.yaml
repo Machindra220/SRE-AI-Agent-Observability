@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgvector
+  namespace: sre-ai-agent-llm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgvector
+  template:
+    metadata:
+      labels:
+        app: pgvector
+    spec:
+      nodeSelector:
+        workload: "ai-agent"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "ai-agent"
+          effect: "NoSchedule"
+      containers:
+        - name: pgvector
+          image: pgvector/pgvector:pg17
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: "sre_agent"
+            - name: POSTGRES_USER
+              value: "sre_user"
+            - name: POSTGRES_PASSWORD
+              value: "sre_pass"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

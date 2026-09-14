@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sre-ai-agent-llm-config
+  namespace: sre-ai-agent-llm
+data:
+  PGHOST: "pgvector-service"
+  PGPORT: "5432"
+  PGDATABASE: "sre_agent"
+  PGUSER: "sre_user"
+  LOG_LEVEL: "INFO"
+  APP_ENV: "dev"

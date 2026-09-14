@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-ai-agent-llm
+  namespace: sre-ai-agent-llm
+  labels:
+    app: sre-ai-agent-llm
+    tags.datadoghq.com/env: "dev"
+    tags.datadoghq.com/service: "sre-ai-agent-llm"
+    tags.datadoghq.com/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sre-ai-agent-llm
+  template:
+    metadata:
+      labels:
+        app: sre-ai-agent-llm
+        tags.datadoghq.com/env: "dev"
+        tags.datadoghq.com/service: "sre-ai-agent-llm"
+        tags.datadoghq.com/version: "1.0.0"
+      annotations:
+        ad.datadoghq.com/sre-ai-agent-llm.logs: '[{"source":"python","service":"sre-ai-agent-llm"}]'
+    spec:
+      # ── Schedule ONLY on agent_nodes ──────────────────────
+      # nodeSelector ensures pod lands on agent node group
+      nodeSelector:
+        workload: "ai-agent"
+      # Toleration allows pod to run on tainted agent nodes
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "ai-agent"
+          effect: "NoSchedule"
+      containers:
+        - name: sre-ai-agent-llm
+          image: 502274764708.dkr.ecr.us-east-1.amazonaws.com/sre-ai-agent-llm:latest
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: sre-ai-agent-llm-config
+            - secretRef:
+                name: sre-ai-agent-llm-secret
+          env:
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_TRACE_AGENT_URL
+              value: "http://$(DD_AGENT_HOST):8126"
+            - name: DD_SERVICE
+              value: "sre-ai-agent-llm"
+            - name: DD_ENV
+              value: "dev"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /agent/health
+              port: 8001
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /agent/health
+              port: 8001
+            initialDelaySeconds: 60
+            periodSeconds: 10
