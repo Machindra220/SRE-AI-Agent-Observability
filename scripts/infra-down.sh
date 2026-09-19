@@ -52,7 +52,7 @@ kubectl delete -f "$PROJECT_ROOT/kubernetes/configmap.yaml" --ignore-not-found
 
 # Removes namespace (deletes everything inside it)
 echo "Deleting Namespace..."
-kubectl delete -f "$PROJECT_ROOT/kubernetes/namespace.yaml" --ignore-not-found
+kubectl delete namespace sre-ai-agent --force --grade-period=0 --ignore-not-found
 
 # -----------------------------------------------------------------------------
 # Step 2: Wait for ELB deletion
