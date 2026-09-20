@@ -8,18 +8,22 @@
 #   GET  /agent/health          → health check
 #   GET  /agent/rca/{id}/html   → view RCA as styled HTML page
 #   GET  /agent/rca/{id}/json   → retrieve stored RCA as JSON
-#   GET  /agent/history         → list all past triage runs
+#   GET  /agent/history         → list all past triage runs (JSON)
+#   GET  /agent/dashboard       → incident history dashboard (HTML UI)
 #
 # Run locally:
 #   uvicorn agent.main:app --host 0.0.0.0 --port 8001 --reload
 # =============================================================
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # ddtrace — Datadog APM tracing
@@ -46,9 +50,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# ── CORS — allow browser requests from dashboard artifact ─────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # tighten to your domain in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Static files — serve dashboard HTML ───────────────────────
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
 # ── In-memory RCA store ───────────────────────────────────────
 # Stores every triage result so it can be retrieved by incident_id
-# In production: replace with PostgreSQL or Redis
+# TODO: replace with PostgreSQL for persistence across pod restarts
 rca_store: dict[str, dict] = {}
 
 
@@ -384,7 +402,7 @@ def health():
 
 
 @app.post("/agent/triage", response_model=TriageResponse)
-def triage(request: TriageRequest):
+def triage(request: TriageRequest, http_request: Request):
     """
     Main endpoint — triggers the full LangGraph SRE agent.
     Stores result in rca_store keyed by incident_id.
@@ -393,6 +411,12 @@ def triage(request: TriageRequest):
     # Generate unique incident ID for this triage run
     incident_id  = f"INC-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{str(uuid.uuid4())[:6].upper()}"
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+
+    # Build base URL dynamically from incoming request
+    # Handles: local dev, EKS LB, custom domain — no hardcoding
+    forwarded_proto = http_request.headers.get("x-forwarded-proto", http_request.url.scheme)
+    forwarded_host  = http_request.headers.get("x-forwarded-host", http_request.headers.get("host", "localhost:8001"))
+    base_url = f"{forwarded_proto}://{forwarded_host}"
 
     logger.info(f"[{incident_id}] Triage: {request.alert_name} ({request.severity})")
 
@@ -446,7 +470,7 @@ def triage(request: TriageRequest):
             confidence   = confidence,
             rca_report   = rca_report,
             generated_at = generated_at,
-            html_url     = f"http://localhost:8001/agent/rca/{incident_id}/html",
+            html_url     = f"{base_url}/agent/rca/{incident_id}/html",
             error        = result.get("error"),
         )
 
@@ -483,11 +507,16 @@ def rca_json(incident_id: str):
 
 
 @app.get("/agent/history")
-def history():
+def history(http_request: Request):
     """
     Lists all past triage runs in this session.
-    Note: restarting uvicorn clears the store (in-memory only).
+    Note: rca_store is in-memory — clears on pod restart.
+    TODO: persist to PostgreSQL for cross-restart history.
     """
+    forwarded_proto = http_request.headers.get("x-forwarded-proto", http_request.url.scheme)
+    forwarded_host  = http_request.headers.get("x-forwarded-host", http_request.headers.get("host", "localhost:8001"))
+    base_url = f"{forwarded_proto}://{forwarded_host}"
+
     return {
         "total": len(rca_store),
         "incidents": [
@@ -498,8 +527,25 @@ def history():
                 "confidence":   v["confidence"],
                 "runbook_used": v["runbook_used"],
                 "generated_at": v["generated_at"],
-                "html_url":     f"http://localhost:8001/agent/rca/{k}/html",
+                "html_url":     f"{base_url}/agent/rca/{k}/html",
             }
             for k, v in rca_store.items()
         ]
     }
+
+
+@app.get("/agent/dashboard", response_class=HTMLResponse)
+def dashboard():
+    """
+    Serves the incident history dashboard HTML.
+    File lives at: agent/static/incident-dashboard.html
+    """
+    dashboard_path = os.path.join(
+        os.path.dirname(__file__), "static", "incident-dashboard.html"
+    )
+    if not os.path.isfile(dashboard_path):
+        raise HTTPException(
+            status_code=404,
+            detail="Dashboard file not found. Ensure agent/static/incident-dashboard.html exists."
+        )
+    return FileResponse(dashboard_path, media_type="text/html")

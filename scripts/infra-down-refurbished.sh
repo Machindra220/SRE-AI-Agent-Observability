@@ -3,8 +3,9 @@
 # infra-down.sh
 # Purpose: Safely tears down ALL application services and AWS infrastructure
 # Usage:   ./scripts/infra-down.sh
-# Order:   Helm uninstall → Delete K8s LB services → EBS CSI cleanup →
+# Order:   Helm uninstall → Delete K8s LB services →
 #          wait for ELB deletion → terraform destroy
+# NOTE:    EBS CSI + LitmusChaos steps SKIPPED (litmus not deployed)
 # WARNING: Destroys EKS and VPC but PRESERVES ECR and DNS hosted zone
 # =============================================================================
 set -e
@@ -39,32 +40,30 @@ helm uninstall prometheus --namespace monitoring 2>/dev/null || \
 helm uninstall grafana --namespace monitoring 2>/dev/null || \
   echo "grafana not found, skipping"
 
-helm uninstall chaos --namespace litmus 2>/dev/null || \
-  echo "chaos (LitmusChaos) not found, skipping"
+# helm uninstall chaos --namespace litmus 2>/dev/null || \
+#   echo "chaos (LitmusChaos) not found, skipping"   # SKIPPED — litmus not deployed
 
 echo "Helm releases uninstalled"
 
 # -----------------------------------------------------------------------------
-# Step 2: Delete LitmusChaos PVCs explicitly
-# PVCs must be deleted BEFORE terraform destroy — otherwise EBS volumes
-# stay attached to deleted nodes and block VPC/subnet deletion
+# Step 2: Delete LitmusChaos PVCs — SKIPPED (litmus not deployed)
+# Re-enable when LitmusChaos is active — PVCs block terraform VPC deletion
 # -----------------------------------------------------------------------------
-echo ""
-echo "=== Step 2: Deleting LitmusChaos PVCs (releases EBS volumes) ==="
-
-kubectl delete pvc --all -n litmus 2>/dev/null || true
-echo "Waiting 20s for EBS volumes to detach..."
-sleep 20
-
-# Confirm PVCs gone
-REMAINING=$(kubectl get pvc -n litmus 2>/dev/null | grep -v NAME | wc -l)
-if [ "$REMAINING" -gt 0 ]; then
-  echo "WARNING: $REMAINING PVCs still pending deletion — forcing..."
-  kubectl get pvc -n litmus -o name 2>/dev/null | \
-    xargs -I {} kubectl patch {} -n litmus \
-    -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
-fi
-echo "PVCs deleted"
+# echo ""
+# echo "=== Step 2: Deleting LitmusChaos PVCs (releases EBS volumes) ==="
+#
+# kubectl delete pvc --all -n litmus 2>/dev/null || true
+# echo "Waiting 20s for EBS volumes to detach..."
+# sleep 20
+#
+# REMAINING=$(kubectl get pvc -n litmus 2>/dev/null | grep -v NAME | wc -l)
+# if [ "$REMAINING" -gt 0 ]; then
+#   echo "WARNING: $REMAINING PVCs still pending deletion — forcing..."
+#   kubectl get pvc -n litmus -o name 2>/dev/null | \
+#     xargs -I {} kubectl patch {} -n litmus \
+#     -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+# fi
+# echo "PVCs deleted"
 
 # -----------------------------------------------------------------------------
 # Step 3: Delete ALL LoadBalancer services
@@ -88,9 +87,9 @@ kubectl delete svc grafana \
   -n monitoring --ignore-not-found 2>/dev/null || true
 echo "Monitoring LBs deleted"
 
-kubectl delete svc chaos-litmus-frontend-service \
-  -n litmus --ignore-not-found 2>/dev/null || true
-echo "LitmusChaos LB deleted"
+# kubectl delete svc chaos-litmus-frontend-service \
+#   -n litmus --ignore-not-found 2>/dev/null || true  # SKIPPED — litmus not deployed
+# echo "LitmusChaos LB deleted"
 
 # -----------------------------------------------------------------------------
 # Step 4: Delete remaining Kubernetes resources
@@ -114,38 +113,35 @@ kubectl delete namespace sre-ai-agent-llm --ignore-not-found 2>/dev/null || true
 # Monitoring namespace
 kubectl delete namespace monitoring --ignore-not-found 2>/dev/null || true
 
-# Litmus namespace — safe now that PVCs and Helm release are gone
-kubectl delete namespace litmus --ignore-not-found 2>/dev/null || true
+# Litmus namespace — SKIPPED (litmus not deployed)
+# kubectl delete namespace litmus --ignore-not-found 2>/dev/null || true
 
 echo "All K8s resources deleted"
 
 # -----------------------------------------------------------------------------
-# Step 5: Remove EBS CSI Driver addon and IAM service account
-# MUST happen before terraform destroy — IAM role is referenced by the addon
-# Leaving this causes: "EntityAlreadyExists" errors on next infra-up
+# Step 5: Remove EBS CSI Driver — SKIPPED (not installed, litmus not deployed)
+# Re-enable when LitmusChaos is active — must run before terraform destroy
 # -----------------------------------------------------------------------------
-echo ""
-echo "=== Step 5: Removing EBS CSI Driver ==="
-
-# Remove the EKS addon
-aws eks delete-addon \
-  --cluster-name "$CLUSTER_NAME" \
-  --addon-name aws-ebs-csi-driver \
-  --region "$AWS_REGION" 2>/dev/null || \
-  echo "EBS CSI addon not found, skipping"
-
-echo "Waiting 20s for addon deletion..."
-sleep 20
-
-# Remove the IAM service account (deletes CloudFormation stack + IAM role)
-eksctl delete iamserviceaccount \
-  --name ebs-csi-controller-sa \
-  --namespace kube-system \
-  --cluster "$CLUSTER_NAME" \
-  --region "$AWS_REGION" 2>/dev/null || \
-  echo "EBS CSI IAM service account not found, skipping"
-
-echo "EBS CSI Driver removed"
+# echo ""
+# echo "=== Step 5: Removing EBS CSI Driver ==="
+#
+# aws eks delete-addon \
+#   --cluster-name "$CLUSTER_NAME" \
+#   --addon-name aws-ebs-csi-driver \
+#   --region "$AWS_REGION" 2>/dev/null || \
+#   echo "EBS CSI addon not found, skipping"
+#
+# echo "Waiting 20s for addon deletion..."
+# sleep 20
+#
+# eksctl delete iamserviceaccount \
+#   --name ebs-csi-controller-sa \
+#   --namespace kube-system \
+#   --cluster "$CLUSTER_NAME" \
+#   --region "$AWS_REGION" 2>/dev/null || \
+#   echo "EBS CSI IAM service account not found, skipping"
+#
+# echo "EBS CSI Driver removed"
 
 # -----------------------------------------------------------------------------
 # Step 6: Wait for ELB deletion
@@ -199,8 +195,11 @@ echo " DESTROYED:"
 echo "  EKS cluster + nodes"
 echo "  VPC + subnets"
 echo "  ELBs"
-echo "  EBS volumes (via PVC deletion)"
+echo ""
+echo " SKIPPED (re-enable when LitmusChaos active):"
+echo "  EBS volumes cleanup"
 echo "  EBS CSI addon + IAM role"
+echo "  LitmusChaos namespace + PVCs"
 echo ""
 echo " Billing stopped for EKS and EC2"
 echo "========================================"
