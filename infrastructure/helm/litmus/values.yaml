@@ -1,0 +1,55 @@
+# =============================================================================
+# LitmusChaos Helm values
+# MongoDB tolerations: allows scheduling on agent_nodes (workload=ai-agent taint)
+# EBS CSI must be installed before deploying — handled in infra-up.sh Step 15
+# =============================================================================
+
+portal:
+  server:
+    nodeSelector: {}
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "ai-agent"
+        effect: "NoSchedule"
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "250m"
+        memory: "256Mi"
+
+  frontend:
+    nodeSelector: {}
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "ai-agent"
+        effect: "NoSchedule"
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+
+mongodb:
+  nodeSelector: {}
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "ai-agent"
+      effect: "NoSchedule"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "250m"
+      memory: "512Mi"
+  persistence:
+    enabled: true
+    storageClass: gp2
+    size: 3Gi

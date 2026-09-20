@@ -309,7 +309,36 @@ echo "Monitoring deployed (check pods: kubectl get pods -n monitoring)"
 # ─────────────────────────────────────────────────────────────────────────────
 
 echo ""
-echo "=== Step 15: Deploy LitmusChaos ==="
+echo "=== Step 15: Install EBS CSI Driver (required for LitmusChaos MongoDB PVC) ==="
+
+# Install EBS CSI addon
+aws eks create-addon \
+  --cluster-name "$CLUSTER_NAME" \
+  --addon-name aws-ebs-csi-driver \
+  --region "$AWS_REGION" 2>/dev/null || echo "EBS CSI addon already exists, skipping"
+
+# Attach IAM policy to CSI service account
+eksctl create iamserviceaccount \
+  --name ebs-csi-controller-sa \
+  --namespace kube-system \
+  --cluster "$CLUSTER_NAME" \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve \
+  --override-existing-serviceaccounts \
+  --region "$AWS_REGION" 2>/dev/null || echo "IAM service account already configured"
+
+# Set gp2 as default storageclass
+kubectl patch storageclass gp2 \
+  -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}' \
+  2>/dev/null || true
+
+# Wait for EBS CSI controller
+echo "Waiting for EBS CSI controller..."
+kubectl rollout status deployment/ebs-csi-controller \
+  -n kube-system --timeout=120s
+
+echo ""
+echo "=== Step 16: Deploy LitmusChaos ==="
 
 helm repo add litmuschaos https://litmuschaos.github.io/litmus-helm/ 2>/dev/null || true
 helm repo update
@@ -319,7 +348,8 @@ kubectl create namespace litmus --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install chaos litmuschaos/litmus \
   --namespace litmus \
   --set portal.frontend.service.type=LoadBalancer \
-  --timeout 10m 2>/dev/null || echo "LitmusChaos install failed — likely insufficient resources"
+  -f "$PROJECT_ROOT/infrastructure/helm/litmus/values.yaml" \
+  --timeout 10m 2>/dev/null || echo "LitmusChaos install failed — check pods: kubectl get pods -n litmus"
 
 echo "LitmusChaos deployed (check pods: kubectl get pods -n litmus)"
 
