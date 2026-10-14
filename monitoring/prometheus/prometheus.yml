@@ -1,5 +1,16 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Push metrics to grafana cloud
+remote_write:
+  - url: https://prometheus-prod-43-prod-ap-south-1.grafana.net/api/prom/push
+    basic_auth:
+      username: "3609050"
+      password: "{GRAFANA_CLOUD_API_KEY}"
+    remote_timeout: 30s
+    send_exemplars: false
+    follow_redirects: true
 
 scrape_configs:
   - job_name: "prometheus"
