@@ -1,0 +1,864 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>SRE-AI-Agent Deployment Flow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #21262d;
+    --border:    #30363d;
+    --fg:        #e6edf3;
+    --muted:     #8b949e;
+    --amber:     #f0b72f;
+    --green:     #3fb950;
+    --blue:      #58a6ff;
+    --purple:    #bc8cff;
+    --red:       #f85149;
+    --cyan:      #39d353;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--fg);
+    font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    padding-block:32px;
+  }
+  .wrap{max-width:900px;margin:0 auto}
+
+  /* ── Header ── */
+  .doc-header{border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:48px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:8px}
+  h1{font-size:clamp(22px,4vw,30px);font-weight:700;text-wrap:balance;line-height:1.2}
+  .sub{margin-top:8px;color:var(--muted);font-size:13px}
+  .badges{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 9px;border-radius:4px;border:1px solid}
+  .b-amber{color:var(--amber);border-color:#f0b72f30;background:#f0b72f0d}
+  .b-blue {color:var(--blue); border-color:#58a6ff30;background:#58a6ff0d}
+  .b-green{color:var(--green);border-color:#3fb95030;background:#3fb9500d}
+  .b-purple{color:var(--purple);border-color:#bc8cff30;background:#bc8cff0d}
+
+  /* ── Section ── */
+  .section{margin-bottom:52px}
+  .sec-title{
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--amber);margin-bottom:18px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+  /* ── Card / box ── */
+  .box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;overflow-x:auto}
+
+  /* ── Timeline ── */
+  .timeline{position:relative;padding-left:32px}
+  .timeline::before{
+    content:'';position:absolute;left:11px;top:8px;bottom:8px;
+    width:2px;background:linear-gradient(to bottom,var(--amber) 0%,var(--blue) 60%,var(--purple) 100%);border-radius:2px
+  }
+  .phase{position:relative;margin-bottom:16px}
+  .phase::before{
+    content:'';position:absolute;left:-25px;top:14px;
+    width:10px;height:10px;border-radius:50%;border:2px solid var(--bg);
+    background:var(--amber);box-shadow:0 0 0 3px var(--bg)
+  }
+  .phase.p-infra::before{background:var(--amber)}
+  .phase.p-k8s::before {background:var(--blue)}
+  .phase.p-app::before {background:var(--green)}
+  .phase.p-ai::before  {background:var(--purple)}
+  .phase.p-obs::before {background:var(--cyan)}
+  .phase.p-chaos::before{background:var(--red)}
+  .phase-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .ph-head{
+    display:flex;align-items:center;gap:10px;padding:11px 14px;
+    border-bottom:1px solid transparent;cursor:pointer;user-select:none
+  }
+  .ph-head:hover{background:var(--surface2)}
+  .ph-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);min-width:56px}
+  .ph-name{font-weight:600;font-size:13px;flex:1}
+  .ph-script{
+    font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+    background:var(--surface2);padding:2px 7px;border-radius:4px;
+    border:1px solid var(--border);white-space:nowrap;max-width:200px;
+    overflow:hidden;text-overflow:ellipsis
+  }
+  .ph-chev{color:var(--muted);font-size:11px;transition:transform .2s;flex-shrink:0}
+  .phase-card.open .ph-chev{transform:rotate(90deg)}
+  .phase-card.open .ph-head{border-bottom-color:var(--border)}
+  .ph-body{display:none;padding:14px}
+  .phase-card.open .ph-body{display:block}
+  .steps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-bottom:12px}
+  .step{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;gap:8px;align-items:flex-start}
+  .sdot{width:6px;height:6px;border-radius:50%;margin-top:5px;flex-shrink:0}
+  .step-text{font-size:12px;color:var(--muted)}
+  .step-text strong{color:var(--fg);display:block;font-size:12px;margin-bottom:1px}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+  .tag.ok{color:var(--green);border-color:#3fb95030}
+
+  /* ── SVG flow shared ── */
+  svg text{font-family:'JetBrains Mono',monospace}
+  .flow-wrap{overflow-x:auto}
+
+  /* ── Namespace grid ── */
+  .ns-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .ns-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+  .ns-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);margin-bottom:8px;font-weight:600}
+  .ns-pods{list-style:none}
+  .ns-pods li{font-size:12px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px}
+  .ns-pods li:last-child{border-bottom:none}
+  .pdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+
+  /* ── env table ── */
+  .env-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:12px}
+  .env-table th{text-align:left;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:11px;letter-spacing:.05em}
+  .env-table td{padding:8px 12px;border:1px solid var(--border);vertical-align:top}
+  .env-table tr:hover td{background:var(--surface2)}
+  .ek{color:var(--amber)}.ev{color:var(--blue)}.en{color:var(--muted);font-family:'Inter',sans-serif;font-size:11px}
+
+  @media(max-width:600px){
+    .timeline{padding-left:22px}
+    .phase::before{left:-17px}
+    .ph-script{display:none}
+    .steps-grid{grid-template-columns:1fr}
+  }
+</style>
+
+<div class="wrap">
+
+<!-- ═══════ HEADER ═══════ -->
+<header class="doc-header">
+  <div class="eyebrow">SRE-AI-Agent-Observability</div>
+  <h1>Complete Deployment Flow</h1>
+  <p class="sub">Step-by-step build order — from EKS cluster to live chaos→RCA loop</p>
+  <div class="badges">
+    <span class="badge b-amber">4 Nodes · t3.small</span>
+    <span class="badge b-blue">EKS + Grafana Cloud</span>
+    <span class="badge b-green">LangGraph RCA Agent</span>
+    <span class="badge b-purple">Phase 22 → 24</span>
+  </div>
+</header>
+
+<!-- ═══════ 1. SYSTEM OVERVIEW ═══════ -->
+<section class="section">
+  <div class="sec-title">System overview</div>
+  <div class="box flow-wrap">
+    <svg viewBox="0 0 820 340" width="100%" style="min-width:600px;display:block">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#8b949e"/>
+        </marker>
+        <marker id="arr-g" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#3fb950"/>
+        </marker>
+        <marker id="arr-r" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#f85149"/>
+        </marker>
+        <marker id="arr-b" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#58a6ff"/>
+        </marker>
+        <marker id="arr-p" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#bc8cff"/>
+        </marker>
+      </defs>
+
+      <!-- AWS box -->
+      <rect x="10" y="10" width="380" height="320" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+      <text x="22" y="30" font-size="10" fill="#f0b72f" letter-spacing="1">☁ AWS (free tier)</text>
+
+      <!-- EKS cluster box -->
+      <rect x="26" y="40" width="350" height="278" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+      <text x="38" y="58" font-size="10" fill="#8b949e">EKS Cluster · t3.small ×4</text>
+
+      <!-- NS boxes -->
+      <!-- sre-ai-agent -->
+      <rect x="36" y="66" width="155" height="72" rx="5" fill="#0d1117" stroke="#3fb95060" stroke-width="1.5"/>
+      <text x="44" y="82" font-size="9" fill="#3fb950" font-weight="600">sre-ai-agent</text>
+      <text x="44" y="96" font-size="9" fill="#8b949e">FastAPI ×3 replicas</text>
+      <text x="44" y="109" font-size="9" fill="#8b949e">HPA · LoadBalancer</text>
+      <text x="44" y="122" font-size="9" fill="#f85149">⚡ chaoskube target</text>
+
+      <!-- sre-ai-agent-llm -->
+      <rect x="205" y="66" width="155" height="72" rx="5" fill="#0d1117" stroke="#bc8cff60" stroke-width="1.5"/>
+      <text x="213" y="82" font-size="9" fill="#bc8cff" font-weight="600">sre-ai-agent-llm</text>
+      <text x="213" y="96" font-size="9" fill="#8b949e">LangGraph agent</text>
+      <text x="213" y="109" font-size="9" fill="#8b949e">pgvector StatefulSet</text>
+      <text x="213" y="122" font-size="9" fill="#8b949e">LoadBalancer /triage</text>
+
+      <!-- chaos -->
+      <rect x="36" y="152" width="155" height="58" rx="5" fill="#0d1117" stroke="#f8514960" stroke-width="1.5"/>
+      <text x="44" y="168" font-size="9" fill="#f85149" font-weight="600">chaos</text>
+      <text x="44" y="182" font-size="9" fill="#8b949e">chaoskube v0.29.0</text>
+      <text x="44" y="195" font-size="9" fill="#8b949e">interval=2m · ~50MB</text>
+
+      <!-- monitoring -->
+      <rect x="205" y="152" width="155" height="72" rx="5" fill="#0d1117" stroke="#39d35360" stroke-width="1.5"/>
+      <text x="213" y="168" font-size="9" fill="#39d353" font-weight="600">monitoring</text>
+      <text x="213" y="182" font-size="9" fill="#8b949e">Prometheus</text>
+      <text x="213" y="195" font-size="9" fill="#8b949e">Grafana (local)</text>
+      <text x="213" y="208" font-size="9" fill="#8b949e">Promtail DaemonSet ×4</text>
+
+      <!-- node legend inside EKS -->
+      <rect x="36" y="232" width="330" height="76" rx="5" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+      <text x="44" y="248" font-size="9" fill="#8b949e">app_nodes (×3)  —  no taint  —  runs: FastAPI, pgvector, Prometheus, chaoskube</text>
+      <text x="44" y="262" font-size="9" fill="#8b949e">agent_nodes (×1)  —  taint: workload=ai-agent:NoSchedule</text>
+      <text x="44" y="276" font-size="9" fill="#8b949e">                        —  runs: LangGraph agent only</text>
+      <text x="44" y="292" font-size="9" fill="#8b949e">Promtail toleration: Exists  →  runs on ALL 4 nodes</text>
+
+      <!-- Grafana Cloud box -->
+      <rect x="430" y="10" width="380" height="320" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+      <text x="442" y="30" font-size="10" fill="#f0b72f" letter-spacing="1">☁ Grafana Cloud (scarletcanary2090)</text>
+
+      <!-- Mimir -->
+      <rect x="446" y="42" width="155" height="58" rx="5" fill="#0d1117" stroke="#39d35360" stroke-width="1.5"/>
+      <text x="454" y="60" font-size="9" fill="#39d353" font-weight="600">Mimir (Prometheus)</text>
+      <text x="454" y="74" font-size="9" fill="#8b949e">remote_write target</text>
+      <text x="454" y="87" font-size="9" fill="#8b949e">stores all metrics</text>
+
+      <!-- Loki -->
+      <rect x="615" y="42" width="179" height="58" rx="5" fill="#0d1117" stroke="#58a6ff60" stroke-width="1.5"/>
+      <text x="623" y="60" font-size="9" fill="#58a6ff" font-weight="600">Loki (logs)</text>
+      <text x="623" y="74" font-size="9" fill="#8b949e">logs-prod-028</text>
+      <text x="623" y="87" font-size="9" fill="#8b949e">.grafana.net</text>
+
+      <!-- Alert rules -->
+      <rect x="446" y="116" width="155" height="72" rx="5" fill="#0d1117" stroke="#f0b72f60" stroke-width="1.5"/>
+      <text x="454" y="132" font-size="9" fill="#f0b72f" font-weight="600">Alert Rules</text>
+      <text x="454" y="146" font-size="9" fill="#8b949e">Pod Restart Rate High</text>
+      <text x="454" y="159" font-size="9" fill="#8b949e">High Error Rate</text>
+      <text x="454" y="172" font-size="9" fill="#8b949e">p99 Latency</text>
+
+      <!-- LangGraph -->
+      <rect x="615" y="116" width="179" height="100" rx="5" fill="#0d1117" stroke="#bc8cff60" stroke-width="1.5"/>
+      <text x="623" y="134" font-size="9" fill="#bc8cff" font-weight="600">LangGraph Pipeline</text>
+      <text x="623" y="150" font-size="9" fill="#8b949e">① alert_parser</text>
+      <text x="623" y="164" font-size="9" fill="#8b949e">② runbook_retriever</text>
+      <text x="623" y="178" font-size="9" fill="#8b949e">   (pgvector RAG)</text>
+      <text x="623" y="192" font-size="9" fill="#8b949e">③ diagnoser (Gemini)</text>
+      <text x="623" y="206" font-size="9" fill="#8b949e">④ rca_writer</text>
+
+      <!-- Dashboard -->
+      <rect x="446" y="204" width="348" height="116" rx="5" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+      <text x="454" y="222" font-size="9" fill="#39d353" font-weight="600">Chaos Dashboard  (auto-refresh 30s)</text>
+      <text x="454" y="238" font-size="9" fill="#8b949e">Row 1: Chaos Status  ·  pod restarts · error rate · p99</text>
+      <text x="454" y="252" font-size="9" fill="#8b949e">Row 2: Chaos Impact  ·  sparklines + latency percentiles</text>
+      <text x="454" y="266" font-size="9" fill="#8b949e">Row 3: LangGraph RCA  ·  live Loki log panel</text>
+      <text x="454" y="280" font-size="9" fill="#8b949e">Row 4: Chaos Events  ·  chaoskube kill log</text>
+      <text x="454" y="294" font-size="9" fill="#8b949e">Row 5: AI Quality  ·  eval scores · triage count</text>
+
+      <!-- ARROWS -->
+      <!-- chaoskube → sre-ai-agent (kill) -->
+      <line x1="113" y1="152" x2="113" y2="138" stroke="#f85149" stroke-width="1.5" marker-end="url(#arr-r)"/>
+
+      <!-- monitoring → Mimir (remote_write) -->
+      <line x1="360" y1="185" x2="440" y2="72" stroke="#39d353" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-g)"/>
+      <text x="373" y="145" font-size="8" fill="#39d353" transform="rotate(-32,373,145)">remote_write</text>
+
+      <!-- monitoring → Loki (Promtail push) -->
+      <line x1="360" y1="200" x2="608" y2="75" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-b)"/>
+      <text x="440" y="155" font-size="8" fill="#58a6ff" transform="rotate(-20,440,155)">Promtail push</text>
+
+      <!-- Mimir → Alert rules -->
+      <line x1="524" y1="100" x2="524" y2="109" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Alert rules → LangGraph agent (webhook) -->
+      <line x1="601" y1="155" x2="608" y2="155" stroke="#f0b72f" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="603" y="149" font-size="8" fill="#f0b72f">webhook</text>
+
+      <!-- LangGraph → Loki (log RCA) -->
+      <line x1="704" y1="116" x2="704" y2="107" stroke="#bc8cff" stroke-width="1.5" marker-end="url(#arr-p)"/>
+
+      <!-- Loki → Dashboard -->
+      <line x1="704" y1="100" x2="704" y2="197" stroke="#8b949e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+
+      <!-- Mimir → Dashboard -->
+      <line x1="524" y1="188" x2="524" y2="197" stroke="#8b949e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══════ 2. DEPLOYMENT PHASES ═══════ -->
+<section class="section">
+  <div class="sec-title">Deployment phases</div>
+  <div class="timeline">
+
+    <div class="phase p-infra">
+      <div class="phase-card open" id="ph1">
+        <div class="ph-head" onclick="tog('ph1')">
+          <span class="ph-num">Phase 22-A</span>
+          <span class="ph-name">Infrastructure Bootstrap</span>
+          <code class="ph-script">infra-up-complete.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--amber)"></div><div class="step-text"><strong>1. EKS Cluster</strong>eksctl creates cluster + VPC + subnets</div></div>
+            <div class="step"><div class="sdot" style="background:var(--amber)"></div><div class="step-text"><strong>2. Node Groups</strong>app_nodes (×3 t3.small) + agent_nodes (×1, tainted)</div></div>
+            <div class="step"><div class="sdot" style="background:var(--amber)"></div><div class="step-text"><strong>3. IAM / OIDC</strong>IRSA bindings for ALB controller + EBS CSI</div></div>
+            <div class="step"><div class="sdot" style="background:var(--amber)"></div><div class="step-text"><strong>4. ALB Controller</strong>Helm install — provisions ELBs for services</div></div>
+            <div class="step"><div class="sdot" style="background:var(--amber)"></div><div class="step-text"><strong>5. Namespaces</strong>sre-ai-agent, sre-ai-agent-llm, monitoring, chaos</div></div>
+            <div class="step"><div class="sdot" style="background:var(--amber)"></div><div class="step-text"><strong>6. Secrets</strong>ECR pull secret · GEMINI_API_KEY · Grafana token</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ kubectl get nodes → 4 Ready</span><span class="tag">INSTALL_DATADOG=false</span><span class="tag">INSTALL_LITMUSCHAOS=false</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-k8s">
+      <div class="phase-card" id="ph2">
+        <div class="ph-head" onclick="tog('ph2')">
+          <span class="ph-num">Phase 22-B</span>
+          <span class="ph-name">pgvector + Runbook Seeding</span>
+          <code class="ph-script">deploy-pgvector.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--blue)"></div><div class="step-text"><strong>1. pgvector StatefulSet</strong>PostgreSQL + pgvector ext in sre-ai-agent-llm</div></div>
+            <div class="step"><div class="sdot" style="background:var(--blue)"></div><div class="step-text"><strong>2. PVC</strong>10Gi EBS volume for vector index</div></div>
+            <div class="step"><div class="sdot" style="background:var(--blue)"></div><div class="step-text"><strong>3. Seed runbooks</strong>Embed SRE runbook chunks → store in pgvector</div></div>
+            <div class="step"><div class="sdot" style="background:var(--blue)"></div><div class="step-text"><strong>4. Verify</strong>SELECT COUNT(*) FROM runbook_chunks</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ pgvector ready</span><span class="tag">ns: sre-ai-agent-llm</span><span class="tag">port: 5432</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-app">
+      <div class="phase-card" id="ph3">
+        <div class="ph-head" onclick="tog('ph3')">
+          <span class="ph-num">Phase 22-C</span>
+          <span class="ph-name">FastAPI App Deploy</span>
+          <code class="ph-script">deploy-app.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--green)"></div><div class="step-text"><strong>1. Build image</strong>docker build → push to ECR</div></div>
+            <div class="step"><div class="sdot" style="background:var(--green)"></div><div class="step-text"><strong>2. Deployment</strong>3 replicas of FastAPI in sre-ai-agent</div></div>
+            <div class="step"><div class="sdot" style="background:var(--green)"></div><div class="step-text"><strong>3. Service (LoadBalancer)</strong>AWS ELB → /health, /metrics</div></div>
+            <div class="step"><div class="sdot" style="background:var(--green)"></div><div class="step-text"><strong>4. HPA</strong>min=2, max=5 replicas on CPU 70%</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ GET /health → 200</span><span class="tag">replicas: 3</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-ai">
+      <div class="phase-card" id="ph4">
+        <div class="ph-head" onclick="tog('ph4')">
+          <span class="ph-num">Phase 22-D</span>
+          <span class="ph-name">LangGraph Agent Deploy</span>
+          <code class="ph-script">deploy-agent.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--purple)"></div><div class="step-text"><strong>1. Build image</strong>LangGraph 4-node pipeline → ECR</div></div>
+            <div class="step"><div class="sdot" style="background:var(--purple)"></div><div class="step-text"><strong>2. Deployment</strong>1 replica on agent_nodes (toleration)</div></div>
+            <div class="step"><div class="sdot" style="background:var(--purple)"></div><div class="step-text"><strong>3. Service (LoadBalancer)</strong>Exposes /agent/triage for webhook</div></div>
+            <div class="step"><div class="sdot" style="background:var(--purple)"></div><div class="step-text"><strong>4. GEMINI_API_KEY</strong>Mounted as env var for diagnoser node</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ POST /agent/triage → RCA</span><span class="tag">node: agent_nodes</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-obs">
+      <div class="phase-card" id="ph5">
+        <div class="ph-head" onclick="tog('ph5')">
+          <span class="ph-num">Phase 22-E</span>
+          <span class="ph-name">kube-prometheus-stack</span>
+          <code class="ph-script">infra-up-complete.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>1. kube-prometheus-stack</strong>Helm install → Prometheus + Grafana + AlertManager</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>2. ServiceMonitors</strong>Scrape sre-ai-agent /metrics every 15s</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>3. PrometheusRules</strong>High error rate + pod restarts + p99 alerts</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>4. Local dashboard</strong>Import sre-ai-agent-dashboard.json</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ Prometheus scraping</span><span class="tag">ns: monitoring</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-obs">
+      <div class="phase-card" id="ph6">
+        <div class="ph-head" onclick="tog('ph6')">
+          <span class="ph-num">Phase 23</span>
+          <span class="ph-name">Grafana Cloud + Alerting Webhook</span>
+          <code class="ph-script">configure-grafana-cloud.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>1. remote_write config</strong>Prometheus → Grafana Cloud Mimir</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>2. Alert rules (Cloud)</strong>Pod Restart Rate High, Error Rate, p99</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>3. Contact point</strong>Webhook → http://&lt;AGENT_LB&gt;/agent/triage</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>4. Notification policy</strong>Routes sre-ai-agent alerts to webhook</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>5. GRAFANA_CLOUD_API_KEY</strong>Add to .env — used by Prometheus + Promtail</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ Metrics in Grafana Cloud</span><span class="tag">stack: scarletcanary2090</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-chaos">
+      <div class="phase-card" id="ph7">
+        <div class="ph-head" onclick="tog('ph7')">
+          <span class="ph-num">Phase 24-A</span>
+          <span class="ph-name">chaoskube — pod killer</span>
+          <code class="ph-script">deploy-chaoskube.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--red)"></div><div class="step-text"><strong>1. chaos namespace</strong>Isolated — chaoskube runs here</div></div>
+            <div class="step"><div class="sdot" style="background:var(--red)"></div><div class="step-text"><strong>2. RBAC</strong>ClusterRole: list+delete pods in sre-ai-agent</div></div>
+            <div class="step"><div class="sdot" style="background:var(--red)"></div><div class="step-text"><strong>3. Helm install v0.29.0</strong>interval=2m · minimumAge=30s · ~50MB</div></div>
+            <div class="step"><div class="sdot" style="background:var(--red)"></div><div class="step-text"><strong>4. Verify</strong>kubectl logs -n chaos deployment/chaoskube</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ Pod killed every 2 min</span><span class="tag">target: sre-ai-agent</span><span class="tag">DRY_RUN=false</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-obs">
+      <div class="phase-card" id="ph8">
+        <div class="ph-head" onclick="tog('ph8')">
+          <span class="ph-num">Phase 24-B</span>
+          <span class="ph-name">Promtail → Grafana Cloud Loki</span>
+          <code class="ph-script">deploy-loki-promtail.sh</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>1. .env credentials</strong>LOKI_USER_ID=1800xxx + GRAFANA_CLOUD_API_KEY</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>2. promtail-loki-secret</strong>kubectl create secret in monitoring</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>3. Helm DaemonSet</strong>values.yaml + --set creds · 1 pod per node</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>4. 4 namespaces scraped</strong>sre-ai-agent · sre-ai-agent-llm · chaos · monitoring</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>5. Verify</strong>Grafana Cloud Explore → {namespace="sre-ai-agent"}</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ Logs in Grafana Cloud</span><span class="tag">url: logs-prod-028</span><span class="tag">tolerations: Exists</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase p-obs">
+      <div class="phase-card" id="ph9">
+        <div class="ph-head" onclick="tog('ph9')">
+          <span class="ph-num">Phase 24-C</span>
+          <span class="ph-name">Grafana Cloud Chaos Dashboard</span>
+          <code class="ph-script">grafana-chaos-dashboard.json</code>
+          <span class="ph-chev">▶</span>
+        </div>
+        <div class="ph-body">
+          <div class="steps-grid">
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>1. Import JSON</strong>Grafana Cloud → Dashboards → Import</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>2. Bind datasources</strong>DS_PROMETHEUS → ...-prom · DS_LOKI → ...-logs</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>3. 5 rows / 8 panels</strong>Status · Impact · RCA · Events · AI Quality</div></div>
+            <div class="step"><div class="sdot" style="background:var(--cyan)"></div><div class="step-text"><strong>4. Update webhook URL</strong>Contact point → set real AGENT_LB hostname</div></div>
+          </div>
+          <div class="tags"><span class="tag ok">✓ Full loop live</span><span class="tag">refresh: 30s</span><span class="tag">8 panels</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════ 3. BUILD ORDER DEPENDENCY GRAPH ═══════ -->
+<section class="section">
+  <div class="sec-title">Build order — dependency graph</div>
+  <div class="box flow-wrap">
+    <svg viewBox="0 0 860 520" width="100%" style="min-width:700px;display:block">
+      <defs>
+        <marker id="a" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="#8b949e"/>
+        </marker>
+        <marker id="a-g" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="#3fb950"/>
+        </marker>
+      </defs>
+
+      <!-- helper: box(x,y,w,h,color,title,sub) rendered inline -->
+      <!-- Row 0 -->
+      <rect x="330" y="10" width="200" height="46" rx="6" fill="#21262d" stroke="#f0b72f" stroke-width="1.5"/>
+      <text x="430" y="30" text-anchor="middle" font-size="10" fill="#f0b72f" font-weight="600">1 · EKS Cluster</text>
+      <text x="430" y="46" text-anchor="middle" font-size="9" fill="#8b949e">eksctl create cluster</text>
+
+      <!-- Row 1 -->
+      <rect x="330" y="86" width="200" height="46" rx="6" fill="#21262d" stroke="#f0b72f80" stroke-width="1.5"/>
+      <text x="430" y="106" text-anchor="middle" font-size="10" fill="#f0b72f" font-weight="600">2 · Node Groups</text>
+      <text x="430" y="122" text-anchor="middle" font-size="9" fill="#8b949e">app_nodes ×3 + agent_nodes ×1</text>
+
+      <!-- Row 2 -->
+      <rect x="120" y="162" width="200" height="46" rx="6" fill="#21262d" stroke="#f0b72f60" stroke-width="1.5"/>
+      <text x="220" y="182" text-anchor="middle" font-size="10" fill="#f0b72f" font-weight="600">3 · ALB Controller</text>
+      <text x="220" y="198" text-anchor="middle" font-size="9" fill="#8b949e">Helm install</text>
+
+      <rect x="540" y="162" width="200" height="46" rx="6" fill="#21262d" stroke="#f0b72f60" stroke-width="1.5"/>
+      <text x="640" y="182" text-anchor="middle" font-size="10" fill="#f0b72f" font-weight="600">4 · Namespaces + Secrets</text>
+      <text x="640" y="198" text-anchor="middle" font-size="9" fill="#8b949e">4× kubectl create ns</text>
+
+      <!-- Row 3 -->
+      <rect x="30" y="238" width="200" height="46" rx="6" fill="#21262d" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="130" y="258" text-anchor="middle" font-size="10" fill="#58a6ff" font-weight="600">5 · pgvector</text>
+      <text x="130" y="274" text-anchor="middle" font-size="9" fill="#8b949e">StatefulSet + PVC 10Gi</text>
+
+      <rect x="330" y="238" width="200" height="46" rx="6" fill="#21262d" stroke="#3fb950" stroke-width="1.5"/>
+      <text x="430" y="258" text-anchor="middle" font-size="10" fill="#3fb950" font-weight="600">6 · FastAPI App</text>
+      <text x="430" y="274" text-anchor="middle" font-size="9" fill="#8b949e">Deployment + HPA + Service</text>
+
+      <!-- Row 4 -->
+      <rect x="30" y="314" width="200" height="46" rx="6" fill="#21262d" stroke="#58a6ff80" stroke-width="1.5"/>
+      <text x="130" y="334" text-anchor="middle" font-size="10" fill="#58a6ff" font-weight="600">7 · Runbook Seed</text>
+      <text x="130" y="350" text-anchor="middle" font-size="9" fill="#8b949e">embed chunks → pgvector</text>
+
+      <rect x="330" y="314" width="200" height="46" rx="6" fill="#21262d" stroke="#bc8cff" stroke-width="1.5"/>
+      <text x="430" y="334" text-anchor="middle" font-size="10" fill="#bc8cff" font-weight="600">8 · LangGraph Agent</text>
+      <text x="430" y="350" text-anchor="middle" font-size="9" fill="#8b949e">Deployment + /triage Service</text>
+
+      <!-- Row 5 -->
+      <rect x="180" y="390" width="200" height="46" rx="6" fill="#21262d" stroke="#39d353" stroke-width="1.5"/>
+      <text x="280" y="410" text-anchor="middle" font-size="10" fill="#39d353" font-weight="600">9 · kube-prometheus-stack</text>
+      <text x="280" y="426" text-anchor="middle" font-size="9" fill="#8b949e">Prometheus + Grafana + AM</text>
+
+      <!-- Row 6 -->
+      <rect x="30" y="390" width="130" height="46" rx="6" fill="#21262d" stroke="#39d35380" stroke-width="1.5"/>
+      <text x="95" y="410" text-anchor="middle" font-size="10" fill="#39d353" font-weight="600">10 · Grafana Cloud</text>
+      <text x="95" y="426" text-anchor="middle" font-size="9" fill="#8b949e">remote_write</text>
+
+      <rect x="395" y="390" width="140" height="46" rx="6" fill="#21262d" stroke="#f0b72f80" stroke-width="1.5"/>
+      <text x="465" y="410" text-anchor="middle" font-size="10" fill="#f0b72f" font-weight="600">11 · Alert Rules</text>
+      <text x="465" y="426" text-anchor="middle" font-size="9" fill="#8b949e">+ webhook contact</text>
+
+      <rect x="550" y="390" width="140" height="46" rx="6" fill="#21262d" stroke="#f8514980" stroke-width="1.5"/>
+      <text x="620" y="410" text-anchor="middle" font-size="10" fill="#f85149" font-weight="600">12 · chaoskube</text>
+      <text x="620" y="426" text-anchor="middle" font-size="9" fill="#8b949e">deploy-chaoskube.sh</text>
+
+      <rect x="700" y="390" width="140" height="46" rx="6" fill="#21262d" stroke="#39d35380" stroke-width="1.5"/>
+      <text x="770" y="410" text-anchor="middle" font-size="10" fill="#39d353" font-weight="600">13 · Promtail</text>
+      <text x="770" y="426" text-anchor="middle" font-size="9" fill="#8b949e">DaemonSet → Loki</text>
+
+      <!-- Final -->
+      <rect x="270" y="466" width="320" height="44" rx="6" fill="#0d3320" stroke="#3fb950" stroke-width="2"/>
+      <text x="430" y="484" text-anchor="middle" font-size="10" fill="#3fb950" font-weight="700">✅ Full Loop Live</text>
+      <text x="430" y="500" text-anchor="middle" font-size="9" fill="#3fb950">chaos → alert → RCA → Loki → dashboard</text>
+
+      <!-- EDGES -->
+      <line x1="430" y1="56" x2="430" y2="79" stroke="#8b949e" stroke-width="1.5" marker-end="url(#a)"/>
+      <!-- node groups → ALB + namespaces -->
+      <line x1="380" y1="132" x2="280" y2="155" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <line x1="480" y1="132" x2="580" y2="155" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- ALB + namespaces → pgvector -->
+      <line x1="200" y1="208" x2="160" y2="231" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- namespaces → pgvector -->
+      <line x1="590" y1="208" x2="200" y2="231" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- namespaces → fastapi -->
+      <line x1="620" y1="208" x2="480" y2="231" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- pgvector → seed -->
+      <line x1="130" y1="284" x2="130" y2="307" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- fastapi → agent -->
+      <line x1="430" y1="284" x2="430" y2="307" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- seed → prometheus-stack -->
+      <line x1="180" y1="360" x2="255" y2="383" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- agent → prometheus-stack -->
+      <line x1="400" y1="360" x2="320" y2="383" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- prom-stack → grafana cloud -->
+      <line x1="230" y1="436" x2="160" y2="436" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- prom-stack → alert rules -->
+      <line x1="330" y1="420" x2="392" y2="420" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- alert rules → chaoskube -->
+      <line x1="535" y1="413" x2="547" y2="413" stroke="#8b949e" stroke-width="1.3" marker-end="url(#a)"/>
+      <!-- grafana cloud → promtail -->
+      <line x1="160" y1="413" x2="697" y2="413" stroke="#8b949e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#a)"/>
+      <!-- chaoskube → final -->
+      <line x1="590" y1="436" x2="540" y2="459" stroke="#3fb950" stroke-width="1.5" marker-end="url(#a-g)"/>
+      <!-- promtail → final -->
+      <line x1="730" y1="436" x2="570" y2="459" stroke="#3fb950" stroke-width="1.5" marker-end="url(#a-g)"/>
+      <!-- alert rules → final -->
+      <line x1="465" y1="436" x2="455" y2="459" stroke="#3fb950" stroke-width="1.5" marker-end="url(#a-g)"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══════ 4. CHAOS → RCA SEQUENCE ═══════ -->
+<section class="section">
+  <div class="sec-title">Live chaos-to-RCA sequence</div>
+  <div class="box flow-wrap">
+    <svg viewBox="0 0 820 400" width="100%" style="min-width:660px;display:block">
+      <defs>
+        <marker id="sa" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="#8b949e"/>
+        </marker>
+      </defs>
+
+      <!-- Actor headers -->
+      <!-- chaoskube / K8s / Prometheus / GrafanaCloud / Agent / Loki / Dashboard -->
+      <g font-family="'JetBrains Mono',monospace" font-size="9" text-anchor="middle">
+        <rect x="10"  y="4" width="90" height="32" rx="4" fill="#21262d" stroke="#f85149" stroke-width="1.5"/>
+        <text x="55"  y="16" fill="#f85149" font-weight="600">chaoskube</text>
+        <text x="55"  y="28" fill="#8b949e">chaos ns</text>
+
+        <rect x="118" y="4" width="90" height="32" rx="4" fill="#21262d" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="163" y="16" fill="#3fb950" font-weight="600">Kubernetes</text>
+        <text x="163" y="28" fill="#8b949e">pod ctrl</text>
+
+        <rect x="226" y="4" width="90" height="32" rx="4" fill="#21262d" stroke="#39d353" stroke-width="1.5"/>
+        <text x="271" y="16" fill="#39d353" font-weight="600">Prometheus</text>
+        <text x="271" y="28" fill="#8b949e">monitoring</text>
+
+        <rect x="334" y="4" width="104" height="32" rx="4" fill="#21262d" stroke="#f0b72f" stroke-width="1.5"/>
+        <text x="386" y="16" fill="#f0b72f" font-weight="600">Grafana Cloud</text>
+        <text x="386" y="28" fill="#8b949e">Mimir + Alerts</text>
+
+        <rect x="448" y="4" width="90" height="32" rx="4" fill="#21262d" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="493" y="16" fill="#bc8cff" font-weight="600">LangGraph</text>
+        <text x="493" y="28" fill="#8b949e">agent pod</text>
+
+        <rect x="554" y="4" width="90" height="32" rx="4" fill="#21262d" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="599" y="16" fill="#58a6ff" font-weight="600">Loki</text>
+        <text x="599" y="28" fill="#8b949e">logs-prod-028</text>
+
+        <rect x="660" y="4" width="100" height="32" rx="4" fill="#21262d" stroke="#39d35360" stroke-width="1.5"/>
+        <text x="710" y="16" fill="#39d353" font-weight="600">Dashboard</text>
+        <text x="710" y="28" fill="#8b949e">Grafana Cloud</text>
+      </g>
+
+      <!-- lifelines -->
+      <line x1="55"  y1="36" x2="55"  y2="398" stroke="#f85149" stroke-width="1" stroke-dasharray="4,4" opacity=".4"/>
+      <line x1="163" y1="36" x2="163" y2="398" stroke="#3fb950" stroke-width="1" stroke-dasharray="4,4" opacity=".4"/>
+      <line x1="271" y1="36" x2="271" y2="398" stroke="#39d353" stroke-width="1" stroke-dasharray="4,4" opacity=".4"/>
+      <line x1="386" y1="36" x2="386" y2="398" stroke="#f0b72f" stroke-width="1" stroke-dasharray="4,4" opacity=".4"/>
+      <line x1="493" y1="36" x2="493" y2="398" stroke="#bc8cff" stroke-width="1" stroke-dasharray="4,4" opacity=".4"/>
+      <line x1="599" y1="36" x2="599" y2="398" stroke="#58a6ff" stroke-width="1" stroke-dasharray="4,4" opacity=".4"/>
+      <line x1="710" y1="36" x2="710" y2="398" stroke="#39d353" stroke-width="1" stroke-dasharray="4,4" opacity=".4"/>
+
+      <!-- message arrows + labels -->
+      <g font-family="'JetBrains Mono',monospace" font-size="9">
+        <!-- T+0:00 chaos kills pod -->
+        <line x1="62" y1="60" x2="156" y2="60" stroke="#f85149" stroke-width="1.5" marker-end="url(#sa)"/>
+        <text x="100" y="55" text-anchor="middle" fill="#f85149">DELETE pod</text>
+        <text x="10" y="72" fill="#8b949e" font-size="8">T+0:00</text>
+
+        <!-- K8s restarts -->
+        <line x1="163" y1="80" x2="163" y2="100" stroke="#3fb950" stroke-width="1.5" marker-end="url(#sa)"/>
+        <text x="175" y="94" fill="#3fb950">restart pod · restarts_total++</text>
+
+        <!-- Prometheus scrapes -->
+        <line x1="163" y1="115" x2="264" y2="115" stroke="#39d353" stroke-width="1.5" marker-end="url(#sa)"/>
+        <text x="207" y="110" text-anchor="middle" fill="#39d353">scrape /metrics (15s)</text>
+        <text x="10" y="127" fill="#8b949e" font-size="8">T+0:15</text>
+
+        <!-- remote write -->
+        <line x1="278" y1="135" x2="378" y2="135" stroke="#39d353" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#sa)"/>
+        <text x="322" y="130" text-anchor="middle" fill="#39d353">remote_write</text>
+
+        <!-- alert evaluates -->
+        <rect x="338" y="148" width="96" height="18" rx="3" fill="#f0b72f15" stroke="#f0b72f40"/>
+        <text x="386" y="161" text-anchor="middle" fill="#f0b72f">evaluate rules</text>
+        <text x="10" y="172" fill="#8b949e" font-size="8">T+0:30</text>
+
+        <!-- webhook fires -->
+        <line x1="393" y1="172" x2="486" y2="172" stroke="#f0b72f" stroke-width="1.5" marker-end="url(#sa)"/>
+        <text x="438" y="167" text-anchor="middle" fill="#f0b72f">webhook POST /agent/triage</text>
+        <text x="10" y="184" fill="#8b949e" font-size="8">T+0:36</text>
+
+        <!-- alert_parser -->
+        <rect x="448" y="184" width="90" height="18" rx="3" fill="#bc8cff15" stroke="#bc8cff40"/>
+        <text x="493" y="197" text-anchor="middle" fill="#bc8cff">① alert_parser</text>
+
+        <!-- runbook_retriever -->
+        <rect x="448" y="210" width="90" height="18" rx="3" fill="#bc8cff15" stroke="#bc8cff40"/>
+        <text x="493" y="223" text-anchor="middle" fill="#bc8cff">② runbook_retriever</text>
+        <text x="10" y="222" fill="#8b949e" font-size="8">T+0:50</text>
+
+        <!-- diagnoser -->
+        <rect x="448" y="236" width="90" height="18" rx="3" fill="#bc8cff15" stroke="#bc8cff40"/>
+        <text x="493" y="249" text-anchor="middle" fill="#bc8cff">③ diagnoser (Gemini)</text>
+        <text x="10" y="248" fill="#8b949e" font-size="8">T+1:00</text>
+
+        <!-- rca_writer -->
+        <rect x="448" y="262" width="90" height="18" rx="3" fill="#bc8cff15" stroke="#bc8cff40"/>
+        <text x="493" y="275" text-anchor="middle" fill="#bc8cff">④ rca_writer</text>
+        <text x="10" y="275" fill="#8b949e" font-size="8">T+1:10</text>
+
+        <!-- RCA log → Loki via Promtail -->
+        <line x1="500" y1="288" x2="592" y2="288" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#sa)"/>
+        <text x="543" y="283" text-anchor="middle" fill="#58a6ff">Promtail scrapes RCA log</text>
+
+        <!-- Loki → Dashboard -->
+        <line x1="606" y1="308" x2="703" y2="308" stroke="#39d353" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#sa)"/>
+        <text x="648" y="303" text-anchor="middle" fill="#39d353">push logs</text>
+
+        <!-- Grafana Cloud metrics → Dashboard -->
+        <line x1="393" y1="328" x2="703" y2="328" stroke="#f0b72f" stroke-width="1.3" stroke-dasharray="4,2" marker-end="url(#sa)"/>
+        <text x="548" y="323" text-anchor="middle" fill="#f0b72f">Mimir metrics → panels</text>
+        <text x="10" y="340" fill="#8b949e" font-size="8">T+1:30</text>
+
+        <!-- Dashboard shows RCA -->
+        <rect x="660" y="338" width="100" height="22" rx="3" fill="#3fb95020" stroke="#3fb950"/>
+        <text x="710" y="353" text-anchor="middle" fill="#3fb950" font-weight="600">RCA visible ✓</text>
+        <text x="10" y="362" fill="#8b949e" font-size="8">T+2:00</text>
+
+        <!-- repeat -->
+        <line x1="55" y1="372" x2="55" y2="390" stroke="#f85149" stroke-width="1.3" stroke-dasharray="3,3"/>
+        <text x="66" y="386" fill="#f85149">loop repeats (every 2 min)</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══════ 5. NAMESPACE MAP ═══════ -->
+<section class="section">
+  <div class="sec-title">Kubernetes namespace map</div>
+  <div class="ns-grid">
+    <div class="ns-card">
+      <div class="ns-name">sre-ai-agent</div>
+      <ul class="ns-pods">
+        <li><span class="pdot" style="background:var(--green)"></span>FastAPI app (×3)</li>
+        <li><span class="pdot" style="background:var(--green)"></span>Service (LoadBalancer)</li>
+        <li><span class="pdot" style="background:var(--green)"></span>HPA (min=2, max=5)</li>
+        <li><span class="pdot" style="background:var(--red)"></span>⚡ chaoskube TARGET</li>
+      </ul>
+    </div>
+    <div class="ns-card">
+      <div class="ns-name">sre-ai-agent-llm</div>
+      <ul class="ns-pods">
+        <li><span class="pdot" style="background:var(--purple)"></span>LangGraph agent (×1)</li>
+        <li><span class="pdot" style="background:var(--purple)"></span>Service → /agent/triage</li>
+        <li><span class="pdot" style="background:var(--blue)"></span>pgvector StatefulSet</li>
+        <li><span class="pdot" style="background:var(--blue)"></span>PVC 10Gi (EBS)</li>
+      </ul>
+    </div>
+    <div class="ns-card">
+      <div class="ns-name">monitoring</div>
+      <ul class="ns-pods">
+        <li><span class="pdot" style="background:var(--cyan)"></span>Prometheus</li>
+        <li><span class="pdot" style="background:var(--cyan)"></span>Grafana (local)</li>
+        <li><span class="pdot" style="background:var(--cyan)"></span>AlertManager</li>
+        <li><span class="pdot" style="background:var(--cyan)"></span>Promtail DaemonSet (×4)</li>
+      </ul>
+    </div>
+    <div class="ns-card">
+      <div class="ns-name">chaos</div>
+      <ul class="ns-pods">
+        <li><span class="pdot" style="background:var(--red)"></span>chaoskube</li>
+        <li><span class="pdot" style="background:var(--muted)"></span>ClusterRole (RBAC)</li>
+        <li><span class="pdot" style="background:var(--muted)"></span>ServiceAccount</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ 6. SCRIPTS AT A GLANCE ═══════ -->
+<section class="section">
+  <div class="sec-title">Scripts at a glance</div>
+  <div class="box flow-wrap">
+    <svg viewBox="0 0 820 200" width="100%" style="min-width:620px;display:block">
+      <defs>
+        <marker id="fa" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="#8b949e"/>
+        </marker>
+      </defs>
+      <!-- boxes -->
+      <g font-family="'JetBrains Mono',monospace" font-size="9" text-anchor="middle">
+        <!-- infra-up -->
+        <rect x="10" y="30" width="120" height="54" rx="6" fill="#21262d" stroke="#f0b72f" stroke-width="1.5"/>
+        <text x="70" y="50" fill="#f0b72f" font-weight="600">infra-up-</text>
+        <text x="70" y="62" fill="#f0b72f" font-weight="600">complete.sh</text>
+        <text x="70" y="76" fill="#8b949e">EKS+ALB+ns+secrets</text>
+
+        <!-- deploy-pgvector -->
+        <rect x="158" y="30" width="120" height="54" rx="6" fill="#21262d" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="218" y="50" fill="#58a6ff" font-weight="600">deploy-</text>
+        <text x="218" y="62" fill="#58a6ff" font-weight="600">pgvector.sh</text>
+        <text x="218" y="76" fill="#8b949e">StatefulSet + seed</text>
+
+        <!-- deploy-app -->
+        <rect x="306" y="30" width="120" height="54" rx="6" fill="#21262d" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="366" y="50" fill="#3fb950" font-weight="600">deploy-</text>
+        <text x="366" y="62" fill="#3fb950" font-weight="600">app.sh</text>
+        <text x="366" y="76" fill="#8b949e">FastAPI + HPA</text>
+
+        <!-- deploy-agent -->
+        <rect x="454" y="30" width="120" height="54" rx="6" fill="#21262d" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="514" y="50" fill="#bc8cff" font-weight="600">deploy-</text>
+        <text x="514" y="62" fill="#bc8cff" font-weight="600">agent.sh</text>
+        <text x="514" y="76" fill="#8b949e">LangGraph pod</text>
+
+        <!-- deploy-chaoskube -->
+        <rect x="208" y="130" width="130" height="54" rx="6" fill="#21262d" stroke="#f85149" stroke-width="1.5"/>
+        <text x="273" y="150" fill="#f85149" font-weight="600">deploy-</text>
+        <text x="273" y="162" fill="#f85149" font-weight="600">chaoskube.sh</text>
+        <text x="273" y="176" fill="#8b949e">pod killer</text>
+
+        <!-- deploy-loki-promtail -->
+        <rect x="358" y="130" width="140" height="54" rx="6" fill="#21262d" stroke="#39d353" stroke-width="1.5"/>
+        <text x="428" y="150" fill="#39d353" font-weight="600">deploy-loki-</text>
+        <text x="428" y="162" fill="#39d353" font-weight="600">promtail.sh</text>
+        <text x="428" y="176" fill="#8b949e">DaemonSet → Loki</text>
+
+        <!-- infra-down -->
+        <rect x="620" y="30" width="120" height="54" rx="6" fill="#21262d" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="6,3"/>
+        <text x="680" y="50" fill="#8b949e" font-weight="600">infra-down.sh</text>
+        <text x="680" y="66" fill="#8b949e">Helm uninstall</text>
+        <text x="680" y="78" fill="#8b949e">+ EKS destroy</text>
+
+        <!-- final circle -->
+        <ellipse cx="578" cy="157" rx="56" ry="26" fill="#0d3320" stroke="#3fb950" stroke-width="2"/>
+        <text x="578" y="153" fill="#3fb950" font-weight="700">✅ Loop live</text>
+        <text x="578" y="167" fill="#3fb950" font-size="8">chaos→alert→RCA→dashboard</text>
+      </g>
+
+      <!-- arrows -->
+      <line x1="130" y1="57" x2="151" y2="57" stroke="#8b949e" stroke-width="1.5" marker-end="url(#fa)"/>
+      <line x1="278" y1="57" x2="299" y2="57" stroke="#8b949e" stroke-width="1.5" marker-end="url(#fa)"/>
+      <line x1="426" y1="57" x2="447" y2="57" stroke="#8b949e" stroke-width="1.5" marker-end="url(#fa)"/>
+      <!-- agent → chaoskube + loki (after agent is deployed, monitoring setup complete) -->
+      <line x1="514" y1="84" x2="514" y2="100" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="3,3"/>
+      <line x1="514" y1="100" x2="273" y2="124" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#fa)"/>
+      <line x1="514" y1="100" x2="428" y2="124" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#fa)"/>
+      <!-- both → final -->
+      <line x1="338" y1="157" x2="518" y2="157" stroke="#3fb950" stroke-width="1.5" marker-end="url(#fa)"/>
+      <line x1="498" y1="157" x2="519" y2="157" stroke="#3fb950" stroke-width="1.5"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══════ 7. .ENV TABLE ═══════ -->
+<section class="section">
+  <div class="sec-title">.env file — required keys</div>
+  <div class="box" style="padding:0;overflow-x:auto">
+    <table class="env-table">
+      <thead><tr><th>Key</th><th>Value</th><th>Used by</th></tr></thead>
+      <tbody>
+        <tr><td class="ek">AWS_REGION</td><td class="ev">ap-south-1</td><td class="en">eksctl, ECR, ALB</td></tr>
+        <tr><td class="ek">CLUSTER_NAME</td><td class="ev">sre-ai-agent-cluster</td><td class="en">eksctl, kubectl context</td></tr>
+        <tr><td class="ek">ECR_REGISTRY</td><td class="ev">123456.dkr.ecr.ap-south-1.amazonaws.com</td><td class="en">docker build, Helm values</td></tr>
+        <tr><td class="ek">GEMINI_API_KEY</td><td class="ev">AIza…</td><td class="en">LangGraph diagnoser node</td></tr>
+        <tr><td class="ek">GRAFANA_CLOUD_API_KEY</td><td class="ev">glc_…</td><td class="en">Prometheus remote_write + Promtail</td></tr>
+        <tr><td class="ek">LOKI_USER_ID</td><td class="ev">1800xxx</td><td class="en">deploy-loki-promtail.sh Basic Auth</td></tr>
+        <tr><td class="ek">GRAFANA_CLOUD_PROMETHEUS_URL</td><td class="ev">https://prometheus-prod-…/api/prom/push</td><td class="en">Prometheus remote_write</td></tr>
+        <tr><td class="ek">INSTALL_DATADOG</td><td class="ev">false</td><td class="en">infra-up-complete.sh flag</td></tr>
+        <tr><td class="ek">INSTALL_LITMUSCHAOS</td><td class="ev">false</td><td class="en">infra-up-complete.sh flag</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<script>
+function tog(id){
+  const c=document.getElementById(id);
+  c.classList.toggle('open');
+}
+</script>
+
+</body></html>

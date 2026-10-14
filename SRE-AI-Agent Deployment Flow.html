@@ -1,0 +1,1058 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>SRE-AI-Agent Deployment Flow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* ─── Design tokens ──────────────────────────────────────────────
+     Layout: single-column timeline with phase cards, mermaid diagrams
+     Color: dark engineering terminal palette, amber accent
+     Type: JetBrains Mono for code/labels, Inter for prose
+  ────────────────────────────────────────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg:          #0d1117;
+    --surface:     #161b22;
+    --surface-2:   #21262d;
+    --border:      #30363d;
+    --fg:          #e6edf3;
+    --fg-muted:    #8b949e;
+    --amber:       #f0a b00;
+    --amber:       #d29922;
+    --amber-glow:  #f0b72f;
+    --green:       #3fb950;
+    --blue:        #58a6ff;
+    --purple:      #bc8cff;
+    --red:         #f85149;
+    --cyan:        #39d353;
+    color-scheme: dark;
+  }
+
+  /* This is intentionally dark-only — it's an engineering reference doc */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding-left:  max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 32px;
+  }
+
+  /* ─── Header ─────────────────────────────────────────────────── */
+  .doc-header {
+    max-width: 860px;
+    margin: 0 auto 48px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+  .doc-header .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--amber-glow);
+    margin-bottom: 8px;
+  }
+  .doc-header h1 {
+    font-size: clamp(22px, 4vw, 32px);
+    font-weight: 700;
+    color: var(--fg);
+    text-wrap: balance;
+    line-height: 1.2;
+  }
+  .doc-header .sub {
+    margin-top: 8px;
+    color: var(--fg-muted);
+    font-size: 13px;
+  }
+  .doc-header .meta {
+    margin-top: 16px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  .badge-amber  { color: var(--amber-glow); border-color: #d299221a; background: #d299220d; }
+  .badge-green  { color: var(--green);      border-color: #3fb9501a; background: #3fb9500d; }
+  .badge-blue   { color: var(--blue);       border-color: #58a6ff1a; background: #58a6ff0d; }
+  .badge-purple { color: var(--purple);     border-color: #bc8cff1a; background: #bc8cff0d; }
+
+  /* ─── Sections ───────────────────────────────────────────────── */
+  .section {
+    max-width: 860px;
+    margin: 0 auto 56px;
+  }
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--amber-glow);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── Phase cards (timeline) ─────────────────────────────────── */
+  .timeline {
+    position: relative;
+    padding-left: 32px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--amber) 0%, var(--blue) 60%, var(--purple) 100%);
+    border-radius: 2px;
+  }
+
+  .phase {
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .phase::before {
+    content: '';
+    position: absolute;
+    left: -25px;
+    top: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    background: var(--amber-glow);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .phase.phase-infra::before  { background: var(--amber-glow); }
+  .phase.phase-k8s::before    { background: var(--blue); }
+  .phase.phase-app::before    { background: var(--green); }
+  .phase.phase-ai::before     { background: var(--purple); }
+  .phase.phase-obs::before    { background: var(--cyan); }
+  .phase.phase-chaos::before  { background: var(--red); }
+
+  .phase-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .phase-header:hover { background: var(--surface-2); }
+
+  .phase-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--fg-muted);
+    min-width: 50px;
+  }
+  .phase-name {
+    font-weight: 600;
+    font-size: 14px;
+    flex: 1;
+  }
+  .phase-script {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--fg-muted);
+    background: var(--surface-2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  .chevron {
+    color: var(--fg-muted);
+    font-size: 12px;
+    transition: transform .2s;
+    flex-shrink: 0;
+  }
+  .phase-card.open .chevron { transform: rotate(90deg); }
+
+  .phase-body {
+    display: none;
+    padding: 16px;
+  }
+  .phase-card.open .phase-body { display: block; }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .step {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .step-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .step-text { font-size: 12px; color: var(--fg-muted); }
+  .step-text strong { color: var(--fg); display: block; font-size: 13px; margin-bottom: 2px; }
+
+  .outputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .output-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+  }
+  .output-tag.ok { color: var(--green); border-color: #3fb9501a; }
+
+  /* ─── Diagrams ───────────────────────────────────────────────── */
+  .diagram-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .diagram-box .mermaid {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* ─── Final flow ─────────────────────────────────────────────── */
+  .flow-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ─── .env table ─────────────────────────────────────────────── */
+  .env-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .env-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-size: 11px;
+    letter-spacing: .05em;
+  }
+  .env-table td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .env-table tr:hover td { background: var(--surface-2); }
+  .env-key   { color: var(--amber-glow); }
+  .env-value { color: var(--blue); }
+  .env-note  { color: var(--fg-muted); font-family: 'Inter', sans-serif; font-size: 11px; }
+
+  /* ─── Namespace map ──────────────────────────────────────────── */
+  .ns-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .ns-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .ns-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--amber-glow);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .ns-pods { list-style: none; }
+  .ns-pods li {
+    font-size: 12px;
+    color: var(--fg-muted);
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ns-pods li:last-child { border-bottom: none; }
+  .ns-pods .pod-dot {
+    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  /* ─── Responsive ─────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .timeline { padding-left: 24px; }
+    .phase::before { left: -19px; }
+    .phase-script { display: none; }
+    .steps-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════════════════ -->
+<header class="doc-header">
+  <div class="eyebrow">SRE-AI-Agent-Observability</div>
+  <h1>Complete Deployment Flow</h1>
+  <p class="sub">Step-by-step build order — from EKS cluster to live chaos-to-RCA loop</p>
+  <div class="meta">
+    <span class="badge badge-amber">4 Node Groups · t3.small</span>
+    <span class="badge badge-blue">EKS + Grafana Cloud</span>
+    <span class="badge badge-green">LangGraph RCA Agent</span>
+    <span class="badge badge-purple">Phase 22 → 24</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     1. WHAT WE'RE BUILDING (overview diagram)
+═══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">System overview</div>
+  <div class="diagram-box">
+    <pre class="mermaid">
+flowchart TB
+    subgraph AWS["☁ AWS (free tier)"]
+        direction TB
+        EKS["EKS Cluster\nt3.small ×4"]
+        subgraph Namespaces["Kubernetes Namespaces"]
+            NS1["sre-ai-agent\n(FastAPI + chaoskube target)"]
+            NS2["sre-ai-agent-llm\n(LangGraph agent + pgvector)"]
+            NS3["monitoring\n(Prometheus + Grafana + Promtail)"]
+            NS4["chaos\n(chaoskube)"]
+        end
+        EKS --> Namespaces
+    end
+
+    subgraph GrafanaCloud["☁ Grafana Cloud (free tier)"]
+        Mimir["Mimir\n(Prometheus remote)"]
+        Loki["Loki\n(log storage)"]
+        Alerts["Alert Rules\n+ Notification Policy"]
+        Dashboard["Chaos Dashboard"]
+    end
+
+    subgraph LangGraph["🤖 LangGraph RCA Pipeline"]
+        P1["alert_parser"]
+        P2["runbook_retriever\n(pgvector RAG)"]
+        P3["diagnoser\n(Gemini)"]
+        P4["rca_writer"]
+        P1 --> P2 --> P3 --> P4
+    end
+
+    NS3 -->|"remote_write"| Mimir
+    NS3 -->|"Promtail push"| Loki
+    Mimir --> Alerts
+    Alerts -->|"webhook POST /agent/triage"| NS2
+    NS2 --> LangGraph
+    Loki --> Dashboard
+    Mimir --> Dashboard
+    </pre>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     2. DEPLOYMENT SEQUENCE (click-to-expand timeline)
+═══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">Deployment phases</div>
+  <div class="timeline">
+
+    <!-- PHASE 1 -->
+    <div class="phase phase-infra">
+      <div class="phase-card open" id="ph1">
+        <div class="phase-header" onclick="toggle('ph1')">
+          <span class="phase-num">Phase 22-A</span>
+          <span class="phase-name">Infrastructure Bootstrap</span>
+          <code class="phase-script">infra-up-complete.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#d29922"></div>
+              <div class="step-text"><strong>1. EKS Cluster</strong>eksctl creates cluster + VPC + subnets</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#d29922"></div>
+              <div class="step-text"><strong>2. Node Groups</strong>app_nodes (×3 t3.small) + agent_nodes (×1, tainted)</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#d29922"></div>
+              <div class="step-text"><strong>3. IAM Roles</strong>OIDC provider + service account IRSA bindings</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#d29922"></div>
+              <div class="step-text"><strong>4. aws-load-balancer-controller</strong>Helm install — provisions ALBs for services</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#d29922"></div>
+              <div class="step-text"><strong>5. Namespaces</strong>sre-ai-agent, sre-ai-agent-llm, monitoring, chaos</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#d29922"></div>
+              <div class="step-text"><strong>6. Secrets</strong>ECR pull secret, GEMINI_API_KEY, Grafana token</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ kubectl get nodes → 4 Ready</span>
+            <span class="output-tag">INSTALL_DATADOG=false</span>
+            <span class="output-tag">INSTALL_LITMUSCHAOS=false</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 2 -->
+    <div class="phase phase-k8s">
+      <div class="phase-card" id="ph2">
+        <div class="phase-header" onclick="toggle('ph2')">
+          <span class="phase-num">Phase 22-B</span>
+          <span class="phase-name">pgvector + Runbook Seeding</span>
+          <code class="phase-script">deploy-pgvector.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#58a6ff"></div>
+              <div class="step-text"><strong>1. pgvector StatefulSet</strong>PostgreSQL + pgvector extension in sre-ai-agent-llm</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#58a6ff"></div>
+              <div class="step-text"><strong>2. PVC</strong>10Gi EBS volume for vector index + runbook data</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#58a6ff"></div>
+              <div class="step-text"><strong>3. Seed runbooks</strong>Embed SRE runbook chunks → store in pgvector</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#58a6ff"></div>
+              <div class="step-text"><strong>4. Verify</strong>SELECT COUNT(*) from runbook_chunks → N rows</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ pgvector ready</span>
+            <span class="output-tag">namespace: sre-ai-agent-llm</span>
+            <span class="output-tag">port: 5432</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div class="phase phase-app">
+      <div class="phase-card" id="ph3">
+        <div class="phase-header" onclick="toggle('ph3')">
+          <span class="phase-num">Phase 22-C</span>
+          <span class="phase-name">FastAPI App Deploy</span>
+          <code class="phase-script">deploy-app.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#3fb950"></div>
+              <div class="step-text"><strong>1. Build image</strong>docker build → push to ECR</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#3fb950"></div>
+              <div class="step-text"><strong>2. Deployment</strong>3 replicas of FastAPI app in sre-ai-agent</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#3fb950"></div>
+              <div class="step-text"><strong>3. Service (LoadBalancer)</strong>AWS ELB → /health, /metrics endpoints</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#3fb950"></div>
+              <div class="step-text"><strong>4. HorizontalPodAutoscaler</strong>min=2, max=5 replicas on CPU 70%</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ GET /health → 200</span>
+            <span class="output-tag">namespace: sre-ai-agent</span>
+            <span class="output-tag">replicas: 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 4 -->
+    <div class="phase phase-ai">
+      <div class="phase-card" id="ph4">
+        <div class="phase-header" onclick="toggle('ph4')">
+          <span class="phase-num">Phase 22-D</span>
+          <span class="phase-name">LangGraph Agent Deploy</span>
+          <code class="phase-script">deploy-agent.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#bc8cff"></div>
+              <div class="step-text"><strong>1. Agent image</strong>Build LangGraph 4-node pipeline → push ECR</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#bc8cff"></div>
+              <div class="step-text"><strong>2. Deployment</strong>1 replica on agent_nodes (toleration: workload=ai-agent)</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#bc8cff"></div>
+              <div class="step-text"><strong>3. Service (LoadBalancer)</strong>Exposes /agent/triage for Grafana webhook</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#bc8cff"></div>
+              <div class="step-text"><strong>4. GEMINI_API_KEY secret</strong>Mounted as env var for diagnoser node</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ POST /agent/triage → RCA returned</span>
+            <span class="output-tag">namespace: sre-ai-agent-llm</span>
+            <span class="output-tag">node: agent_nodes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 5 -->
+    <div class="phase phase-obs">
+      <div class="phase-card" id="ph5">
+        <div class="phase-header" onclick="toggle('ph5')">
+          <span class="phase-num">Phase 22-E</span>
+          <span class="phase-name">Prometheus + Grafana (local)</span>
+          <code class="phase-script">infra-up-complete.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>1. kube-prometheus-stack</strong>Helm install — Prometheus + Grafana + AlertManager</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>2. ServiceMonitors</strong>Scrape sre-ai-agent /metrics every 15s</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>3. PrometheusRules</strong>High error rate, pod restarts, p99 latency alerts</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>4. local Grafana dashboard</strong>Import sre-ai-agent-dashboard.json</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ Prometheus scraping</span>
+            <span class="output-tag">namespace: monitoring</span>
+            <span class="output-tag">port-forward: 3000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 6 -->
+    <div class="phase phase-obs">
+      <div class="phase-card" id="ph6">
+        <div class="phase-header" onclick="toggle('ph6')">
+          <span class="phase-num">Phase 23</span>
+          <span class="phase-name">Grafana Cloud + Alerting Webhook</span>
+          <code class="phase-script">configure-grafana-cloud.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>1. remote_write config</strong>Prometheus → Grafana Cloud Mimir (scarletcanary2090)</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>2. Alert rules (Cloud)</strong>Pod Restart Rate High, High Error Rate, p99 Latency</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>3. Contact point</strong>Webhook → http://&lt;AGENT_LB&gt;/agent/triage</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>4. Notification policy</strong>Routes sre-ai-agent alerts to webhook contact point</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>5. GRAFANA_CLOUD_API_KEY</strong>Added to .env — used by Prometheus + Promtail</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ Metrics visible in Grafana Cloud</span>
+            <span class="output-tag">stack: scarletcanary2090</span>
+            <span class="output-tag">region: ap-south-1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 7 -->
+    <div class="phase phase-chaos">
+      <div class="phase-card" id="ph7">
+        <div class="phase-header" onclick="toggle('ph7')">
+          <span class="phase-num">Phase 24-A</span>
+          <span class="phase-name">chaoskube (pod killer)</span>
+          <code class="phase-script">deploy-chaoskube.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#f85149"></div>
+              <div class="step-text"><strong>1. chaos namespace</strong>Isolated from app — chaoskube runs here</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#f85149"></div>
+              <div class="step-text"><strong>2. RBAC</strong>ClusterRole: list+delete pods in sre-ai-agent only</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#f85149"></div>
+              <div class="step-text"><strong>3. Helm install chaoskube v0.29.0</strong>interval=2m, minimumAge=30s, ~50MB RAM</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#f85149"></div>
+              <div class="step-text"><strong>4. Verify kill logs</strong>kubectl logs -n chaos deployment/chaoskube</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ Pod killed every 2 min</span>
+            <span class="output-tag">target: sre-ai-agent</span>
+            <span class="output-tag">DRY_RUN=false</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 8 -->
+    <div class="phase phase-obs">
+      <div class="phase-card" id="ph8">
+        <div class="phase-header" onclick="toggle('ph8')">
+          <span class="phase-num">Phase 24-B</span>
+          <span class="phase-name">Promtail → Grafana Cloud Loki</span>
+          <code class="phase-script">deploy-loki-promtail.sh</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>1. .env credentials</strong>LOKI_USER_ID=1800xxx + GRAFANA_CLOUD_API_KEY</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>2. promtail-loki-secret</strong>kubectl create secret in monitoring namespace</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>3. Helm install Promtail DaemonSet</strong>values.yaml + --set credentials; 1 pod per node</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>4. Scrapes 4 namespaces</strong>sre-ai-agent, sre-ai-agent-llm, chaos, monitoring</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>5. Verify in Grafana Cloud</strong>Explore → Loki → {namespace="sre-ai-agent"}</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ Logs in Grafana Cloud Loki</span>
+            <span class="output-tag">url: logs-prod-028.grafana.net</span>
+            <span class="output-tag">tolerations: Exists</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 9 -->
+    <div class="phase phase-obs">
+      <div class="phase-card" id="ph9">
+        <div class="phase-header" onclick="toggle('ph9')">
+          <span class="phase-num">Phase 24-C</span>
+          <span class="phase-name">Grafana Cloud Chaos Dashboard</span>
+          <code class="phase-script">grafana-chaos-dashboard.json</code>
+          <span class="chevron">▶</span>
+        </div>
+        <div class="phase-body">
+          <div class="steps-grid">
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>1. Import JSON</strong>Grafana Cloud → Dashboards → Import</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>2. Bind datasources</strong>DS_PROMETHEUS → grafanacloud-...-prom · DS_LOKI → ...-logs</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>3. 5 dashboard rows</strong>Chaos Status · Impact · LangGraph RCA · Events · AI Quality</div>
+            </div>
+            <div class="step">
+              <div class="step-dot" style="background:#39d353"></div>
+              <div class="step-text"><strong>4. Update webhook URL</strong>Alerting → Contact point → set real AGENT_LB hostname</div>
+            </div>
+          </div>
+          <div class="outputs">
+            <span class="output-tag ok">✓ Live chaos + RCA visible</span>
+            <span class="output-tag">refresh: 30s</span>
+            <span class="output-tag">8 panels</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /timeline -->
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     3. COMPLETE CHAOS → RCA FLOW
+═══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">Live chaos-to-RCA loop</div>
+  <div class="diagram-box">
+    <pre class="mermaid">
+sequenceDiagram
+    participant C  as chaoskube
+    participant K  as Kubernetes
+    participant P  as Prometheus
+    participant GC as Grafana Cloud
+    participant W  as Webhook /agent/triage
+    participant LG as LangGraph Agent
+    participant L  as Loki
+
+    C->>K: DELETE pod (every 2 min)
+    K->>K: Restart pod (Deployment controller)
+    Note over K: kube_pod_container_restarts_total ++
+    P->>GC: remote_write metrics (15s)
+    GC->>GC: Evaluate: rate(restarts[2m]) > 0.1
+    GC->>W: POST AlertManager JSON payload
+    W->>LG: alert_parser node
+    LG->>LG: runbook_retriever (pgvector RAG)
+    LG->>LG: diagnoser (Gemini API)
+    LG->>LG: rca_writer
+    LG->>L: Log RCA to stdout (Promtail scrapes)
+    L->>GC: Push logs to Loki
+    GC->>GC: Dashboard: chaos event + RCA visible
+    </pre>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     4. KUBERNETES NAMESPACE MAP
+═══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">Kubernetes namespace map</div>
+  <div class="ns-grid">
+    <div class="ns-card">
+      <div class="ns-name">sre-ai-agent</div>
+      <ul class="ns-pods">
+        <li><span class="pod-dot" style="background:#3fb950"></span>FastAPI app (×3)</li>
+        <li><span class="pod-dot" style="background:#3fb950"></span>Service (LoadBalancer)</li>
+        <li><span class="pod-dot" style="background:#f85149"></span>⚡ chaoskube TARGET</li>
+        <li><span class="pod-dot" style="background:#8b949e"></span>HPA (2–5 replicas)</li>
+      </ul>
+    </div>
+    <div class="ns-card">
+      <div class="ns-name">sre-ai-agent-llm</div>
+      <ul class="ns-pods">
+        <li><span class="pod-dot" style="background:#bc8cff"></span>LangGraph agent (×1)</li>
+        <li><span class="pod-dot" style="background:#bc8cff"></span>Service (LoadBalancer)</li>
+        <li><span class="pod-dot" style="background:#58a6ff"></span>pgvector StatefulSet</li>
+        <li><span class="pod-dot" style="background:#58a6ff"></span>PVC (10Gi EBS)</li>
+      </ul>
+    </div>
+    <div class="ns-card">
+      <div class="ns-name">monitoring</div>
+      <ul class="ns-pods">
+        <li><span class="pod-dot" style="background:#39d353"></span>Prometheus</li>
+        <li><span class="pod-dot" style="background:#39d353"></span>Grafana (local)</li>
+        <li><span class="pod-dot" style="background:#39d353"></span>AlertManager</li>
+        <li><span class="pod-dot" style="background:#39d353"></span>Promtail DaemonSet (×4)</li>
+      </ul>
+    </div>
+    <div class="ns-card">
+      <div class="ns-name">chaos</div>
+      <ul class="ns-pods">
+        <li><span class="pod-dot" style="background:#f85149"></span>chaoskube</li>
+        <li><span class="pod-dot" style="background:#8b949e"></span>ClusterRole (RBAC)</li>
+        <li><span class="pod-dot" style="background:#8b949e"></span>ServiceAccount</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     5. INFRA BUILD ORDER (mermaid flowchart)
+═══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">Build order dependency graph</div>
+  <div class="diagram-box">
+    <pre class="mermaid">
+flowchart TD
+    A["1 · EKS Cluster\neksctl create"] --> B["2 · Node Groups\napp_nodes + agent_nodes"]
+    B --> C["3 · ALB Controller\nHelminstall"]
+    B --> D["4 · Namespaces\n4× kubectl create ns"]
+    C --> E["5 · pgvector\nStatefulSet + PVC"]
+    D --> E
+    D --> F["6 · FastAPI App\nDeploy + Service + HPA"]
+    E --> G["7 · Runbook seed\npython seed_runbooks.py"]
+    G --> H["8 · LangGraph Agent\nDeploy + Service"]
+    F --> I["9 · kube-prometheus-stack\nHelm install"]
+    H --> I
+    I --> J["10 · Grafana Cloud\nremote_write config"]
+    J --> K["11 · Alert rules\n+ webhook contact point"]
+    K --> L["12 · chaoskube\ndeploy-chaoskube.sh"]
+    J --> M["13 · Promtail DaemonSet\ndeploy-loki-promtail.sh"]
+    L --> N["14 · Chaos Dashboard\nimport JSON"]
+    M --> N
+    N --> O["✅ Full loop live\nchaos → alert → RCA → Loki → dashboard"]
+
+    style A fill:#21262d,stroke:#d29922,color:#e6edf3
+    style O fill:#21262d,stroke:#3fb950,color:#3fb950
+    style L fill:#21262d,stroke:#f85149,color:#f85149
+    style H fill:#21262d,stroke:#bc8cff,color:#bc8cff
+    </pre>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     6. .env REFERENCE
+═══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">.env file — all required keys</div>
+  <div class="diagram-box" style="padding:0; overflow-x:auto">
+    <table class="env-table">
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Example value</th>
+          <th>Used by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="env-key">AWS_REGION</td>
+          <td class="env-value">ap-south-1</td>
+          <td class="env-note">eksctl, ECR, ALB</td>
+        </tr>
+        <tr>
+          <td class="env-key">CLUSTER_NAME</td>
+          <td class="env-value">sre-ai-agent-cluster</td>
+          <td class="env-note">eksctl, kubectl context</td>
+        </tr>
+        <tr>
+          <td class="env-key">ECR_REGISTRY</td>
+          <td class="env-value">123456.dkr.ecr.ap-south-1.amazonaws.com</td>
+          <td class="env-note">docker build, Helm values</td>
+        </tr>
+        <tr>
+          <td class="env-key">GEMINI_API_KEY</td>
+          <td class="env-value">AIza…</td>
+          <td class="env-note">LangGraph diagnoser node</td>
+        </tr>
+        <tr>
+          <td class="env-key">GRAFANA_CLOUD_API_KEY</td>
+          <td class="env-value">glc_…</td>
+          <td class="env-note">Prometheus remote_write, Promtail</td>
+        </tr>
+        <tr>
+          <td class="env-key">LOKI_USER_ID</td>
+          <td class="env-value">1800xxx</td>
+          <td class="env-note">deploy-loki-promtail.sh Basic Auth</td>
+        </tr>
+        <tr>
+          <td class="env-key">GRAFANA_CLOUD_PROMETHEUS_URL</td>
+          <td class="env-value">https://prometheus-prod-…/api/prom/push</td>
+          <td class="env-note">Prometheus remote_write</td>
+        </tr>
+        <tr>
+          <td class="env-key">INSTALL_DATADOG</td>
+          <td class="env-value">false</td>
+          <td class="env-note">infra-up-complete.sh flag</td>
+        </tr>
+        <tr>
+          <td class="env-key">INSTALL_LITMUSCHAOS</td>
+          <td class="env-value">false</td>
+          <td class="env-note">infra-up-complete.sh flag</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     7. SCRIPTS REFERENCE
+═══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">Scripts at a glance</div>
+  <div class="diagram-box">
+    <pre class="mermaid">
+flowchart LR
+    subgraph UP["🚀 Bring Up"]
+        S1["infra-up-complete.sh\nEKS + ALB + namespaces + secrets"]
+        S2["deploy-pgvector.sh\npgvector StatefulSet + seed"]
+        S3["deploy-app.sh\nFastAPI Deployment + HPA"]
+        S4["deploy-agent.sh\nLangGraph agent pod"]
+        S5["deploy-chaoskube.sh\npod killer on chaos ns"]
+        S6["deploy-loki-promtail.sh\nDaemonSet → Loki"]
+    end
+
+    subgraph DOWN["🧹 Tear Down"]
+        T1["infra-down.sh\nHelm uninstall + EKS destroy"]
+    end
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6
+    </pre>
+  </div>
+</section>
+
+<script>
+  function toggle(id) {
+    const card = document.getElementById(id);
+    card.classList.toggle('open');
+  }
+</script>
+
+<!--claude-mermaid-runtime-begin:3477-->
+<style>.mermaid-diagram{margin-block:4px}.mermaid-diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}</style>
+<script src="/_runtime/mermaid-11.16.1.min.js"></script>
+<script>(function(){
+var CFG={"palettes":{"light":{"surface":"#f4efe4","text":"#42392e","line":"#8a7f6d","border":"#7a6c52","bg":"#fffdf8"},"dark":{"surface":"#262b34","text":"#f2f3f5","line":"#a8adb8","border":"#9aa4b8","bg":"#1f232b"}}};
+if(typeof mermaid==='undefined')return;
+var pres=Array.prototype.slice.call(document.querySelectorAll('pre.mermaid')).filter(function(p){if(p.hasAttribute('data-claude-mermaid-claimed'))return false;p.setAttribute('data-claude-mermaid-claimed','1');return true;});
+if(!pres.length)return;
+var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+var root=document.documentElement;
+var items=pres.map(function(pre){
+var mount=document.createElement('div');mount.className='mermaid-diagram';
+return {pre:pre,mount:mount,src:pre.textContent||''};
+});
+var seq=0;
+var renderGen=0;
+var lastKey='';
+function pageBg(fallback){
+var els=[document.body,document.documentElement];
+for(var i=0;i<els.length;i++){
+var c=els[i]&&getComputedStyle(els[i]).backgroundColor;
+if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
+}
+return fallback;
+}
+function render(){
+var theme=root.getAttribute('data-theme');
+var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
+var pal=dark?CFG.palettes.dark:CFG.palettes.light;
+var bg=pageBg(pal.bg);
+var key=(dark?'d':'l')+'|'+bg;
+if(key===lastKey)return;
+lastKey=key;
+var gen=++renderGen;
+var font=getComputedStyle(document.body).fontFamily||'sans-serif';
+var nat={useMaxWidth:false};
+mermaid.initialize({
+startOnLoad:false,securityLevel:'strict',theme:'base',
+flowchart:nat,sequence:nat,er:nat,state:nat,class:nat,pie:nat,
+gantt:nat,journey:nat,timeline:nat,gitGraph:nat,mindmap:nat,xyChart:nat,
+quadrantChart:nat,sankey:nat,c4:nat,requirement:nat,block:nat,
+packet:nat,kanban:nat,architecture:nat,radar:nat,
+themeVariables:{background:bg,mainBkg:pal.surface,primaryColor:pal.surface,
+primaryTextColor:pal.text,lineColor:pal.line,primaryBorderColor:pal.border,
+nodeBorder:pal.border,clusterBorder:pal.border,edgeLabelBackground:bg,
+clusterBkg:'rgba(127,127,127,0.07)',titleColor:pal.text,
+darkMode:dark,rowOdd:bg,rowEven:'rgba(127,127,127,0.07)',
+attributeBackgroundColorOdd:bg,attributeBackgroundColorEven:'rgba(127,127,127,0.07)',
+fontSize:'16px',fontFamily:font},
+themeCSS:'.node rect, .node circle, .node polygon, .node path, .cluster rect { stroke-width: 2px; }'
+});
+items.forEach(function(it){
+var id='claude-mermaid-'+seq++;
+mermaid.render(id,it.src).then(function(r){
+if(gen!==renderGen)return;
+var prev=it.pre.previousElementSibling;
+if(prev&&prev.className==='mermaid-diagram'&&prev!==it.mount)return;
+it.mount.innerHTML=r.svg;
+if(!it.mount.parentNode)it.pre.parentNode.insertBefore(it.mount,it.pre);
+it.pre.style.display='none';
+},function(){
+var scratch=document.getElementById(id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+scratch=document.getElementById('d'+id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+if(gen!==renderGen)return;
+if(it.mount.parentNode)it.mount.parentNode.removeChild(it.mount);
+it.pre.style.display='';
+});
+});
+}
+render();
+if(mq&&mq.addEventListener)mq.addEventListener('change',render);
+if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
+})();</script>
+<!--claude-mermaid-runtime-end-->
+
+</body></html>

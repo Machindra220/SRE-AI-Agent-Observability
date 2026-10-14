@@ -1,0 +1,194 @@
+# =============================================================================
+# infrastructure/helm/promtail/values.yaml
+# Phase 24 — Promtail → Grafana Cloud Loki (log scraping)
+#
+# Compatible with: grafana/promtail Helm chart v6.x
+#
+# What this does:
+#   Deploys Promtail as a DaemonSet on every EKS node.
+#   Scrapes pod logs from /var/log/pods/ and ships to Grafana Cloud Loki.
+#   Adds Kubernetes metadata labels: namespace, pod, container, app, node.
+#
+# Grafana Cloud Loki endpoint:
+#   Region: ap-south-1 (scarletcanary2090 stack)
+#   URL:    https://logs-prod-028.grafana.net/loki/api/v1/push
+#   User:   1800194  (Basic auth username — from grafanacloud-scarletcanary2090-logs settings)
+#   Auth:   Basic auth — username=1800194, password=<GRAFANA_CLOUD_API_TOKEN>
+#
+# Credentials are NOT stored here — injected at deploy time via --set in
+# deploy-loki-promtail.sh to keep secrets out of git.
+# =============================================================================
+
+# ─── Promtail config (rendered into /etc/promtail/promtail.yaml inside pod) ──
+config:
+  # Loki push client — credentials injected at helm install via --set
+  clients:
+    - url: https://logs-prod-028.grafana.net/loki/api/v1/push
+      basic_auth:
+        username: ""       # overridden by --set config.clients[0].basic_auth.username
+        password: ""       # overridden by --set config.clients[0].basic_auth.password
+      backoff_config:
+        min_period: 500ms
+        max_period: 5m
+        max_retries: 10
+
+  # Promtail scrape configuration
+  # Discovers pods via Kubernetes API and tails their log files on the node
+  snippets:
+    scrapeConfigs: |
+      # ── App pods: sre-ai-agent namespace ──────────────────────────────────
+      - job_name: sre-ai-agent-pods
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - sre-ai-agent
+        pipeline_stages:
+          - docker: {}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: .+
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: /
+            target_label: __path__
+            replacement: /var/log/pods/*$1/*.log
+
+      # ── Agent pods: sre-ai-agent-llm namespace ────────────────────────────
+      - job_name: sre-ai-agent-llm-pods
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - sre-ai-agent-llm
+        pipeline_stages:
+          - docker: {}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: .+
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: /
+            target_label: __path__
+            replacement: /var/log/pods/*$1/*.log
+
+      # ── Chaos pods: chaos namespace (chaoskube kill logs) ─────────────────
+      - job_name: chaos-pods
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - chaos
+        pipeline_stages:
+          - json:
+              expressions:
+                level: level
+                msg: msg
+          - labels:
+              level:
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          - replacement: chaos
+            target_label: app
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: /
+            target_label: __path__
+            replacement: /var/log/pods/*$1/*.log
+
+      # ── Monitoring namespace ───────────────────────────────────────────────
+      - job_name: monitoring-pods
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - monitoring
+        pipeline_stages:
+          - docker: {}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: keep
+            regex: .+
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: /
+            target_label: __path__
+            replacement: /var/log/pods/*$1/*.log
+
+# ─── Resource limits — t3.small friendly ──────────────────────────────────────
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# ─── Tolerate ALL node taints ─────────────────────────────────────────────────
+# Required so Promtail deploys on agent_nodes (taint: workload=ai-agent:NoSchedule)
+# Without this, tainted nodes have no log scraping
+tolerations:
+  - operator: Exists
+
+# ─── Mount host log directories (read-only) ───────────────────────────────────
+# Promtail reads /var/log/pods/ on the host to access container logs
+extraVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: docker-containers
+    hostPath:
+      path: /var/lib/docker/containers
+
+extraVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+  - name: docker-containers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+
+# ─── RBAC — Promtail needs pod + namespace read for metadata enrichment ───────
+rbac:
+  create: true
+  pspEnabled: false
+
+serviceAccount:
+  create: true
+  name: promtail
+
+# ─── DaemonSet is the default deployment mode in grafana/promtail chart ───────
+# No need to set daemonset.enabled — it's true by default

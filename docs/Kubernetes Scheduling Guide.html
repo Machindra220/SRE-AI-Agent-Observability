@@ -1,0 +1,1079 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Kubernetes Scheduling Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ── Design tokens ─────────────────────────────────────────────────────── */
+/* Layout: editorial long-read, centred single column, wide SVG diagrams   */
+:root {
+  --bg:         #F7F6F2;
+  --bg-card:    #FFFFFF;
+  --bg-code:    #EEECEA;
+  --fg:         #1A1917;
+  --fg-mid:     #4A4845;
+  --fg-muted:   #7A7773;
+  --accent:     #2563EB;   /* blue — Kubernetes brand adjacency */
+  --accent-bg:  #EFF4FF;
+  --warn:       #D97706;
+  --warn-bg:    #FFFBEB;
+  --good:       #16A34A;
+  --good-bg:    #F0FDF4;
+  --bad:        #DC2626;
+  --bad-bg:     #FEF2F2;
+  --border:     #E2E0DB;
+  --node-a:     #DBEAFE;   /* app-node fill */
+  --node-b:     #FEF3C7;   /* agent-node fill */
+  --node-c:     #D1FAE5;   /* third node */
+  --stroke:     #94A3B8;
+
+  --f-display:  'Fraunces', Georgia, serif;
+  --f-body:     'Inter', system-ui, sans-serif;
+  --f-mono:     'JetBrains Mono', 'Fira Code', monospace;
+
+  --r:          8px;
+  --max:        740px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        #12110F;
+    --bg-card:   #1E1C1A;
+    --bg-code:   #2A2825;
+    --fg:        #F0EDE8;
+    --fg-mid:    #B8B4AE;
+    --fg-muted:  #7A7773;
+    --accent:    #60A5FA;
+    --accent-bg: #1E2D45;
+    --warn:      #FBB040;
+    --warn-bg:   #2D2110;
+    --good:      #4ADE80;
+    --good-bg:   #0D2818;
+    --bad:       #F87171;
+    --bad-bg:    #2D1010;
+    --border:    #2E2C28;
+    --node-a:    #1E3050;
+    --node-b:    #2D2010;
+    --node-c:    #0D2818;
+    --stroke:    #475569;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:        #12110F;
+  --bg-card:   #1E1C1A;
+  --bg-code:   #2A2825;
+  --fg:        #F0EDE8;
+  --fg-mid:    #B8B4AE;
+  --fg-muted:  #7A7773;
+  --accent:    #60A5FA;
+  --accent-bg: #1E2D45;
+  --warn:      #FBB040;
+  --warn-bg:   #2D2110;
+  --good:      #4ADE80;
+  --good-bg:   #0D2818;
+  --bad:       #F87171;
+  --bad-bg:    #2D1010;
+  --border:    #2E2C28;
+  --node-a:    #1E3050;
+  --node-b:    #2D2010;
+  --node-c:    #0D2818;
+  --stroke:    #475569;
+  color-scheme: dark;
+}
+
+/* ── Reset & base ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.7;
+  padding-left:  max(16px, env(safe-area-inset-left,  0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────── */
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; color: var(--fg); }
+h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 600; margin-top: 3rem; margin-bottom: 0.6rem; }
+h3 { font-size: 1.15rem; font-weight: 600; margin-top: 1.6rem; margin-bottom: 0.4rem; }
+p  { color: var(--fg-mid); margin-bottom: 1rem; max-width: 65ch; }
+a  { color: var(--accent); text-decoration: none; }
+code {
+  font-family: var(--f-mono);
+  font-size: 0.82em;
+  background: var(--bg-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--fg);
+}
+strong { color: var(--fg); font-weight: 600; }
+
+/* ── Layout wrapper ────────────────────────────────────────────────────── */
+.wrap {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding-block: 64px 96px;
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+.hero {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2.5rem;
+  margin-bottom: 3rem;
+}
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 1.2rem;
+}
+.hero-sub {
+  font-size: 1.15rem;
+  color: var(--fg-mid);
+  margin-top: 1rem;
+  max-width: 55ch;
+}
+.hero-meta {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-top: 1.4rem;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+}
+.hero-meta span::before { content: "· "; }
+.hero-meta span:first-child::before { content: ""; }
+
+/* ── TOC ───────────────────────────────────────────────────────────────── */
+.toc {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 3rem;
+}
+.toc-title {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  margin-bottom: 0.8rem;
+}
+.toc ol { padding-left: 1.2rem; }
+.toc li { margin-bottom: 0.3rem; }
+.toc a { color: var(--fg-mid); font-size: 0.9rem; }
+.toc a:hover { color: var(--accent); }
+
+/* ── Section dividers ──────────────────────────────────────────────────── */
+.section { margin-top: 3.5rem; }
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin-bottom: 0.4rem;
+}
+
+/* ── Callout boxes ─────────────────────────────────────────────────────── */
+.callout {
+  border-left: 3px solid;
+  border-radius: 0 var(--r) var(--r) 0;
+  padding: 1rem 1.2rem;
+  margin: 1.5rem 0;
+  font-size: 0.92rem;
+}
+.callout.info  { border-color: var(--accent); background: var(--accent-bg); }
+.callout.warn  { border-color: var(--warn);   background: var(--warn-bg); }
+.callout.good  { border-color: var(--good);   background: var(--good-bg); }
+.callout p { color: inherit; margin: 0; }
+.callout-title { font-weight: 600; margin-bottom: 0.3rem; color: var(--fg); }
+
+/* ── Code blocks ───────────────────────────────────────────────────────── */
+.code-block {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.2rem 1.4rem;
+  overflow-x: auto;
+  margin: 1.2rem 0;
+}
+.code-block pre {
+  font-family: var(--f-mono);
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--fg);
+  white-space: pre;
+  margin: 0;
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin-bottom: 0.6rem;
+}
+.code-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+
+/* ── Comparison table ──────────────────────────────────────────────────── */
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin: 1.2rem 0;
+}
+.cmp-table th {
+  background: var(--bg-code);
+  font-family: var(--f-display);
+  font-weight: 600;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  color: var(--fg);
+}
+.cmp-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-mid);
+  vertical-align: top;
+}
+.cmp-table tr:last-child td { border-bottom: none; }
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+.badge.hard { background: var(--bad-bg); color: var(--bad); }
+.badge.soft { background: var(--warn-bg); color: var(--warn); }
+
+/* ── Summary card ──────────────────────────────────────────────────────── */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+@media (max-width: 520px) { .summary-grid { grid-template-columns: 1fr; } }
+.summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.2rem;
+}
+.summary-card h4 {
+  font-family: var(--f-display);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--fg);
+}
+.summary-card p { font-size: 0.85rem; margin: 0; }
+
+/* ── SVG diagrams ──────────────────────────────────────────────────────── */
+.diagram-wrap {
+  margin: 2rem 0;
+  overflow-x: auto;
+}
+.diagram-wrap svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.diagram-caption {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  margin-top: 0.6rem;
+  font-style: italic;
+}
+
+/* ── Divider ───────────────────────────────────────────────────────────── */
+hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+
+/* ── Highlight span ────────────────────────────────────────────────────── */
+.hl { color: var(--accent); font-weight: 600; }
+.hl-warn { color: var(--warn); font-weight: 600; }
+.hl-good { color: var(--good); font-weight: 600; }
+.hl-bad  { color: var(--bad);  font-weight: 600; }
+
+/* ── Reading time pill ─────────────────────────────────────────────────── */
+.read-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+}
+</style>
+
+<div class="wrap">
+
+  <!-- ── HERO ──────────────────────────────────────────────────────────── -->
+  <header class="hero">
+    <div class="hero-eyebrow">☸ Kubernetes Deep Dive</div>
+    <h1>Taints, Tolerations &amp;<br>Affinity in Kubernetes</h1>
+    <p class="hero-sub">A complete, beginner-friendly guide to controlling exactly which pods land on which nodes — and why that matters in production.</p>
+    <div class="hero-meta">
+      <span class="read-pill">⏱ 10 min read</span>
+      <span>Intermediate</span>
+      <span>Scheduling · Pod placement · SRE</span>
+    </div>
+  </header>
+
+  <!-- ── TOC ───────────────────────────────────────────────────────────── -->
+  <nav class="toc">
+    <div class="toc-title">In this article</div>
+    <ol>
+      <li><a href="#problem">The Problem — Why Pod Placement Matters</a></li>
+      <li><a href="#taints">Taints &amp; Tolerations — The Bouncer Model</a></li>
+      <li><a href="#affinity">Node Affinity — Attraction</a></li>
+      <li><a href="#pod-affinity">Pod Affinity &amp; Anti-Affinity — Social Rules</a></li>
+      <li><a href="#together">Using All Three Together</a></li>
+      <li><a href="#summary">Quick Reference</a></li>
+    </ol>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section id="problem" class="section">
+    <div class="section-label">Part 1</div>
+    <h2>The Problem — Why Pod Placement Matters</h2>
+
+    <p>When you deploy a pod in Kubernetes, the <strong>scheduler</strong> decides which node it runs on. By default, it picks any available node. This sounds fine — until you have a cluster with different kinds of nodes doing different jobs.</p>
+
+    <p>Imagine your cluster has three nodes:</p>
+
+    <!-- DIAGRAM 1 — Default placement problem -->
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" style="min-width:520px">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#94A3B8"/>
+          </marker>
+        </defs>
+        <!-- Scheduler -->
+        <rect x="260" y="10" width="180" height="44" rx="8"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="350" y="36" text-anchor="middle" font-family="var(--f-body)" font-size="13" fill="var(--accent)" font-weight="600">⚙ Kubernetes Scheduler</text>
+
+        <!-- Arrows down -->
+        <line x1="300" y1="54" x2="130" y2="110" stroke="var(--stroke)" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="350" y1="54" x2="350" y2="108" stroke="var(--stroke)" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="400" y1="54" x2="570" y2="110" stroke="var(--stroke)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- Node A: General -->
+        <rect x="20" y="112" width="210" height="128" rx="8" fill="var(--node-a)" stroke="var(--stroke)" stroke-width="1.5"/>
+        <text x="125" y="136" text-anchor="middle" font-family="var(--f-body)" font-size="11" fill="var(--fg-muted)" font-weight="600" letter-spacing="0.08em">NODE A — General</text>
+        <rect x="36" y="148" width="80" height="28" rx="5" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1"/>
+        <text x="76" y="167" text-anchor="middle" font-family="var(--f-mono)" font-size="10" fill="var(--accent)">FastAPI</text>
+        <rect x="126" y="148" width="80" height="28" rx="5" fill="var(--good-bg)" stroke="var(--good)" stroke-width="1"/>
+        <text x="166" y="167" text-anchor="middle" font-family="var(--f-mono)" font-size="10" fill="var(--good)">pgvector</text>
+        <rect x="36" y="186" width="80" height="28" rx="5" fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1"/>
+        <text x="76" y="205" text-anchor="middle" font-family="var(--f-mono)" font-size="10" fill="var(--warn)">LangGraph</text>
+        <rect x="126" y="186" width="80" height="28" rx="5" fill="var(--bad-bg)" stroke="var(--bad)" stroke-width="1"/>
+        <text x="166" y="205" text-anchor="middle" font-family="var(--f-mono)" font-size="10" fill="var(--bad)">Prometheus</text>
+        <text x="125" y="232" text-anchor="middle" font-family="var(--f-body)" font-size="10" fill="var(--bad)">⚠ Everything piled here</text>
+
+        <!-- Node B: General -->
+        <rect x="245" y="112" width="210" height="128" rx="8" fill="var(--node-a)" stroke="var(--stroke)" stroke-width="1.5"/>
+        <text x="350" y="136" text-anchor="middle" font-family="var(--f-body)" font-size="11" fill="var(--fg-muted)" font-weight="600" letter-spacing="0.08em">NODE B — General</text>
+        <rect x="261" y="148" width="80" height="28" rx="5" fill="var(--bg-code)" stroke="var(--border)" stroke-width="1"/>
+        <text x="301" y="167" text-anchor="middle" font-family="var(--f-mono)" font-size="10" fill="var(--fg-muted)">Grafana</text>
+        <text x="350" y="220" text-anchor="middle" font-family="var(--f-body)" font-size="10" fill="var(--fg-muted)">Mostly idle</text>
+
+        <!-- Node C: GPU/High-mem -->
+        <rect x="470" y="112" width="210" height="128" rx="8" fill="var(--node-b)" stroke="var(--stroke)" stroke-width="1.5"/>
+        <text x="575" y="136" text-anchor="middle" font-family="var(--f-body)" font-size="11" fill="var(--fg-muted)" font-weight="600" letter-spacing="0.08em">NODE C — Expensive GPU</text>
+        <rect x="486" y="148" width="80" height="28" rx="5" fill="var(--bg-code)" stroke="var(--border)" stroke-width="1"/>
+        <text x="526" y="167" text-anchor="middle" font-family="var(--f-mono)" font-size="10" fill="var(--fg-muted)">nginx</text>
+        <text x="575" y="220" text-anchor="middle" font-family="var(--f-body)" font-size="10" fill="var(--bad)">😱 Wasted $$$</text>
+      </svg>
+      <div class="diagram-caption">Without scheduling control: random pod placement — expensive nodes wasted, busy nodes overloaded.</div>
+    </div>
+
+    <p>This is the exact problem that <strong>Taints &amp; Tolerations</strong>, <strong>Node Affinity</strong>, and <strong>Pod Affinity/Anti-Affinity</strong> solve. Think of them as three different tools — each with a different job.</p>
+
+    <div class="callout info">
+      <div class="callout-title">Mental model before you read on</div>
+      <p><strong>Taints</strong> = a "No Entry" sign on the door of a node.<br>
+      <strong>Tolerations</strong> = a special pass that lets your pod ignore that sign.<br>
+      <strong>Affinity</strong> = a pod's own preferences about where it wants to live.</p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section id="taints" class="section">
+    <div class="section-label">Part 2</div>
+    <h2>Taints &amp; Tolerations — The Bouncer Model</h2>
+
+    <p>A <strong>taint</strong> is set on a <em>node</em>. It says: <em>"I don't want just any pod here."</em></p>
+    <p>A <strong>toleration</strong> is set on a <em>pod</em>. It says: <em>"I'm okay with that node's restriction, let me in."</em></p>
+    <p>Think of a nightclub. The bouncer (taint) stands at the door. Only guests with the right wristband (toleration) get in.</p>
+
+    <!-- DIAGRAM 2 — Bouncer model -->
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg" style="min-width:520px">
+        <defs>
+          <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#94A3B8"/>
+          </marker>
+          <marker id="arr-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--bad)"/>
+          </marker>
+          <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--good)"/>
+          </marker>
+        </defs>
+
+        <!-- NODE (right side) -->
+        <rect x="430" y="60" width="240" height="180" rx="10"
+              fill="var(--node-b)" stroke="var(--warn)" stroke-width="2"/>
+        <text x="550" y="84" text-anchor="middle" font-family="var(--f-body)"
+              font-size="12" fill="var(--fg)" font-weight="600">GPU Node</text>
+        <rect x="450" y="95" width="200" height="34" rx="6"
+              fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="550" y="112" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="11" fill="var(--warn)" font-weight="600">Taint: gpu=true:NoSchedule</text>
+        <text x="550" y="128" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">🚫 "No ordinary pods"</text>
+
+        <!-- Bouncer icon area -->
+        <rect x="390" y="110" width="36" height="80" rx="4"
+              fill="var(--bg-card)" stroke="var(--border)" stroke-width="1.5"/>
+        <text x="408" y="145" text-anchor="middle" font-size="22">🛂</text>
+        <text x="408" y="175" text-anchor="middle" font-family="var(--f-body)"
+              font-size="9" fill="var(--fg-muted)">Bouncer</text>
+
+        <!-- POD WITHOUT toleration (blocked) -->
+        <rect x="30" y="80" width="170" height="60" rx="8"
+              fill="var(--bad-bg)" stroke="var(--bad)" stroke-width="1.5"/>
+        <text x="115" y="105" text-anchor="middle" font-family="var(--f-body)"
+              font-size="12" fill="var(--fg)" font-weight="600">📦 nginx pod</text>
+        <text x="115" y="123" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--bad)">No toleration</text>
+        <!-- Arrow blocked -->
+        <line x1="200" y1="110" x2="380" y2="148" stroke="var(--bad)" stroke-width="2"
+              stroke-dasharray="6,3" marker-end="url(#arr-red)"/>
+        <text x="290" y="122" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--bad)" font-weight="600">✗ BLOCKED</text>
+
+        <!-- POD WITH toleration (admitted) -->
+        <rect x="30" y="190" width="170" height="70" rx="8"
+              fill="var(--good-bg)" stroke="var(--good)" stroke-width="1.5"/>
+        <text x="115" y="215" text-anchor="middle" font-family="var(--f-body)"
+              font-size="12" fill="var(--fg)" font-weight="600">🤖 ML Training pod</text>
+        <text x="115" y="232" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--good)">tolerations:</text>
+        <text x="115" y="248" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--good)">  gpu=true</text>
+        <!-- Arrow admitted -->
+        <line x1="200" y1="220" x2="380" y2="178" stroke="var(--good)" stroke-width="2"
+              marker-end="url(#arr-green)"/>
+        <text x="295" y="215" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--good)" font-weight="600">✓ ADMITTED</text>
+
+        <!-- Running pod in node -->
+        <rect x="450" y="155" width="180" height="70" rx="6"
+              fill="var(--good-bg)" stroke="var(--good)" stroke-width="1"/>
+        <text x="540" y="178" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg)" font-weight="600">🤖 ML Training pod</text>
+        <text x="540" y="198" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--good)">Running ✓</text>
+        <text x="540" y="215" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="9" fill="var(--fg-muted)">has the right pass</text>
+      </svg>
+      <div class="diagram-caption">The Bouncer model — only pods with the matching toleration get past the taint.</div>
+    </div>
+
+    <h3>Setting a taint on a node</h3>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>kubectl</div>
+      <pre>kubectl taint nodes gpu-node-1 gpu=true:NoSchedule</pre>
+    </div>
+
+    <p>The taint format is always <code>key=value:Effect</code>. The three effects are:</p>
+
+    <table class="cmp-table">
+      <thead><tr><th>Effect</th><th>What it does</th><th>Use when…</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>NoSchedule</code></td>
+          <td>New pods without toleration won't be placed here. Existing pods stay.</td>
+          <td>You want to reserve a node going forward</td>
+        </tr>
+        <tr>
+          <td><code>PreferNoSchedule</code></td>
+          <td>Scheduler <em>tries</em> to avoid this node but may use it if nothing else is available.</td>
+          <td>Soft preference — not critical</td>
+        </tr>
+        <tr>
+          <td><code>NoExecute</code></td>
+          <td>New pods blocked AND existing pods without toleration are <strong>evicted</strong>.</td>
+          <td>Node is unhealthy or needs full evacuation</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Adding a toleration to your pod</h3>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>pod-spec.yaml</div>
+      <pre>spec:
+  tolerations:
+    - key: "gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"</pre>
+    </div>
+
+    <p>There's also a wildcard form — tolerate <em>every</em> taint on the node:</p>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>tolerate ALL taints (used by DaemonSets)</div>
+      <pre>tolerations:
+  - operator: Exists   # no key or value — matches everything</pre>
+    </div>
+
+    <div class="callout warn">
+      <div class="callout-title">⚠ Common mistake</div>
+      <p>Tolerations only <em>allow</em> a pod to land on a tainted node — they don't <em>guarantee</em> it. A pod with a toleration can still end up on any untainted node. To guarantee placement, you also need <strong>affinity</strong> (covered next).</p>
+    </div>
+
+    <h3>Real-world example — your SRE project</h3>
+    <p>In the SRE-AI-Agent project, <code>agent-nodes</code> (the node that runs LangGraph) has this taint:</p>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>eksctl — applied during infra-up</div>
+      <pre>--node-taints "workload=ai-agent:NoSchedule"</pre>
+    </div>
+    <p>This keeps pgvector, Prometheus, and other pods off that node, reserving its resources entirely for the LangGraph RCA agent. Only the LangGraph pod has a toleration for <code>workload=ai-agent</code>, so only it gets in.</p>
+
+    <p>The one exception is <strong>Promtail</strong> (the log shipper DaemonSet). It needs to run on every node including agent-nodes. So it uses the wildcard:</p>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>deploy-loki-promtail.sh</div>
+      <pre>tolerations:
+  - operator: Exists   # DaemonSet — runs on ALL nodes regardless of taints</pre>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section id="affinity" class="section">
+    <div class="section-label">Part 3</div>
+    <h2>Node Affinity — Attraction</h2>
+
+    <p><strong>Node Affinity</strong> is a rule on a <em>pod</em> that says: <em>"I want to run on a node that has this label."</em> Unlike taints (which push pods away from nodes), affinity <em>pulls</em> a pod toward certain nodes.</p>
+
+    <!-- DIAGRAM 3 — Node Affinity -->
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" style="min-width:520px">
+        <defs>
+          <marker id="arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="arr3g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--fg-muted)"/>
+          </marker>
+        </defs>
+
+        <!-- Pod (left) -->
+        <rect x="20" y="110" width="170" height="75" rx="8"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="105" y="135" text-anchor="middle" font-family="var(--f-body)"
+              font-size="12" fill="var(--fg)" font-weight="600">🤖 LangGraph Pod</text>
+        <text x="105" y="153" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--accent)">nodeAffinity:</text>
+        <text x="105" y="169" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--accent)">  role = agent</text>
+
+        <!-- Magnet arrow to right node -->
+        <path d="M190,148 C280,148 310,110 380,110" stroke="var(--accent)" stroke-width="2"
+              fill="none" marker-end="url(#arr3)"/>
+        <text x="275" y="130" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--accent)">🧲 attracted</text>
+
+        <!-- Faded arrows to other nodes -->
+        <path d="M190,148 C280,148 310,210 380,220" stroke="var(--fg-muted)" stroke-width="1"
+              fill="none" stroke-dasharray="5,4" marker-end="url(#arr3g)"/>
+        <text x="280" y="210" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">✗ doesn't match</text>
+
+        <!-- Node A: agent (matching) -->
+        <rect x="380" y="60" width="190" height="100" rx="10"
+              fill="var(--node-b)" stroke="var(--warn)" stroke-width="2"/>
+        <text x="475" y="84" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg)" font-weight="600">agent-node</text>
+        <rect x="400" y="94" width="150" height="22" rx="5"
+              fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1"/>
+        <text x="475" y="109" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--warn)">label: role=agent</text>
+        <text x="475" y="140" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--good)">✓ Matches! Pod lands here.</text>
+
+        <!-- Node B: app (not matching) -->
+        <rect x="380" y="190" width="190" height="80" rx="10"
+              fill="var(--node-a)" stroke="var(--stroke)" stroke-width="1.5" opacity="0.6"/>
+        <text x="475" y="214" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-mid)" font-weight="600">app-node</text>
+        <rect x="400" y="224" width="150" height="22" rx="5"
+              fill="var(--bg-code)" stroke="var(--border)" stroke-width="1"/>
+        <text x="475" y="239" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--fg-muted)">label: role=app</text>
+      </svg>
+      <div class="diagram-caption">Node Affinity pulls the pod toward nodes with the matching label.</div>
+    </div>
+
+    <h3>Hard vs Soft rules</h3>
+
+    <table class="cmp-table">
+      <thead><tr><th>Type</th><th>Keyword</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge hard">Hard</span></td>
+          <td><code>requiredDuringSchedulingIgnoredDuringExecution</code></td>
+          <td>Must match — pod stays <strong>Pending</strong> forever if no node matches</td>
+        </tr>
+        <tr>
+          <td><span class="badge soft">Soft</span></td>
+          <td><code>preferredDuringSchedulingIgnoredDuringExecution</code></td>
+          <td>Try to match — but schedule on any node if needed</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>langgraph-deployment.yaml — Hard rule</div>
+      <pre>spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: role
+                operator: In
+                values: ["agent"]   # must land on a node with role=agent</pre>
+    </div>
+
+    <div class="callout good">
+      <div class="callout-title">✓ Best practice: use both</div>
+      <p>In your SRE project, the agent-node has a <strong>taint</strong> (keeps others out) AND the LangGraph pod has <strong>affinity</strong> (pulls it specifically here). Taint alone leaves the pod floating; affinity alone lets the pod land anywhere the taint isn't. You need both for guaranteed exclusive placement.</p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section id="pod-affinity" class="section">
+    <div class="section-label">Part 4</div>
+    <h2>Pod Affinity &amp; Anti-Affinity — Social Rules</h2>
+
+    <p>So far, pods have been expressing opinions about <em>nodes</em>. Now pods can express opinions about <em>other pods</em>.</p>
+
+    <p><strong>Pod Affinity</strong>: "Schedule me on the <em>same</em> node as pod X."<br>
+    <strong>Pod Anti-Affinity</strong>: "Schedule me on a <em>different</em> node from pod X."</p>
+
+    <!-- DIAGRAM 4 — Pod Affinity vs Anti-Affinity -->
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg" style="min-width:520px">
+        <defs>
+          <marker id="aff-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="aff-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--bad)"/>
+          </marker>
+        </defs>
+
+        <!-- SCENARIO LABEL LEFT -->
+        <text x="175" y="20" text-anchor="middle" font-family="var(--f-display)"
+              font-size="14" fill="var(--accent)" font-weight="600">Pod Affinity</text>
+        <text x="175" y="38" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-muted)">"Sit together"</text>
+
+        <!-- Node A left scenario -->
+        <rect x="20" y="52" width="310" height="130" rx="10"
+              fill="var(--node-a)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="175" y="76" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-muted)" font-weight="600" letter-spacing="0.08em">NODE A</text>
+        <!-- Cache pod already running -->
+        <rect x="36" y="88" width="120" height="40" rx="6"
+              fill="var(--good-bg)" stroke="var(--good)" stroke-width="1.5"/>
+        <text x="96" y="112" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="11" fill="var(--good)">Redis Cache</text>
+        <!-- App pod placed here via affinity -->
+        <rect x="172" y="88" width="140" height="40" rx="6"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="242" y="107" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--accent)" font-weight="600">FastAPI pod</text>
+        <text x="242" y="122" text-anchor="middle" font-family="var(--f-body)"
+              font-size="9" fill="var(--accent)">placed here ↓</text>
+        <!-- Arrow between them -->
+        <path d="M156,108 L172,108" stroke="var(--accent)" stroke-width="2"
+              marker-end="url(#aff-blue)"/>
+        <text x="175" y="162" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--accent)">🧲 "I want to be near Redis" → co-located for low latency</text>
+
+        <!-- Node B left scenario (empty, ignored) -->
+        <rect x="20" y="198" width="310" height="60" rx="10"
+              fill="var(--bg-code)" stroke="var(--border)" stroke-width="1" opacity="0.6"/>
+        <text x="175" y="234" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-muted)">NODE B — FastAPI skips this node</text>
+
+        <!-- DIVIDER -->
+        <line x1="350" y1="40" x2="350" y2="280" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- SCENARIO LABEL RIGHT -->
+        <text x="525" y="20" text-anchor="middle" font-family="var(--f-display)"
+              font-size="14" fill="var(--bad)" font-weight="600">Pod Anti-Affinity</text>
+        <text x="525" y="38" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-muted)">"Spread apart" — for HA</text>
+
+        <!-- Node A right (has replica 1) -->
+        <rect x="370" y="52" width="145" height="130" rx="10"
+              fill="var(--node-a)" stroke="var(--stroke)" stroke-width="1.5"/>
+        <text x="443" y="76" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-muted)" font-weight="600" letter-spacing="0.06em">NODE A</text>
+        <rect x="386" y="88" width="113" height="40" rx="6"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="443" y="112" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="11" fill="var(--accent)">FastAPI #1</text>
+        <text x="443" y="162" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">Replica 1 here</text>
+
+        <!-- Node B right (gets replica 2 via anti-affinity) -->
+        <rect x="535" y="52" width="145" height="130" rx="10"
+              fill="var(--node-c)" stroke="var(--good)" stroke-width="2"/>
+        <text x="608" y="76" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-muted)" font-weight="600" letter-spacing="0.06em">NODE B</text>
+        <rect x="551" y="88" width="113" height="40" rx="6"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="608" y="107" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--accent)" font-weight="600">FastAPI #2</text>
+        <text x="608" y="122" text-anchor="middle" font-family="var(--f-body)"
+              font-size="9" fill="var(--good)">forced here ↓</text>
+        <text x="608" y="162" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--good)">Replica 2 here</text>
+
+        <!-- Repel arrow -->
+        <path d="M515,108 C520,108 525,108 535,108" stroke="var(--bad)" stroke-width="2"
+              stroke-dasharray="4,3"/>
+        <text x="525" y="100" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--bad)">🚫 repel</text>
+
+        <!-- Node dies scenario -->
+        <rect x="370" y="210" width="145" height="60" rx="10"
+              fill="var(--bad-bg)" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="443" y="238" text-anchor="middle" font-family="var(--f-body)"
+              font-size="12" fill="var(--bad)">💥 Node A dies</text>
+        <text x="443" y="256" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--bad)">Replica 1 gone</text>
+
+        <rect x="535" y="210" width="145" height="60" rx="10"
+              fill="var(--good-bg)" stroke="var(--good)" stroke-width="1.5"/>
+        <text x="608" y="238" text-anchor="middle" font-family="var(--f-body)"
+              font-size="12" fill="var(--good)">✓ Node B alive</text>
+        <text x="608" y="256" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--good)">Still serving traffic!</text>
+      </svg>
+      <div class="diagram-caption">Left: Pod Affinity groups pods together (low latency). Right: Anti-Affinity spreads replicas across nodes (high availability).</div>
+    </div>
+
+    <h3>Pod Affinity — co-locate for low latency</h3>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>fastapi-deployment.yaml — "sit near Redis"</div>
+      <pre>spec:
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: redis-cache       # find nodes that already have Redis
+          topologyKey: kubernetes.io/hostname   # "same node"</pre>
+    </div>
+
+    <h3>Pod Anti-Affinity — spread for high availability</h3>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>fastapi-deployment.yaml — "never share a node with my own replicas"</div>
+      <pre>spec:
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: sre-ai-agent     # don't co-locate with pods that share my label
+          topologyKey: kubernetes.io/hostname   # "different node"</pre>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">What is topologyKey?</div>
+      <p><code>topologyKey</code> defines the boundary. <code>kubernetes.io/hostname</code> means "per node". You can also use <code>topology.kubernetes.io/zone</code> to spread across availability zones, or <code>topology.kubernetes.io/region</code> for regions. The key must match a label that exists on the nodes.</p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section id="together" class="section">
+    <div class="section-label">Part 5</div>
+    <h2>Using All Three Together</h2>
+
+    <p>In a real production cluster, you combine all three mechanisms. Here is how the SRE-AI-Agent project uses them:</p>
+
+    <!-- DIAGRAM 5 — Full cluster view -->
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 380" xmlns="http://www.w3.org/2000/svg" style="min-width:560px">
+
+        <!-- Cluster border -->
+        <rect x="10" y="10" width="680" height="360" rx="14"
+              fill="none" stroke="var(--border)" stroke-width="2" stroke-dasharray="8,5"/>
+        <text x="350" y="32" text-anchor="middle" font-family="var(--f-display)"
+              font-size="13" fill="var(--fg-muted)" font-weight="600" letter-spacing="0.08em">EKS CLUSTER — sre-ai-agent-cluster</text>
+
+        <!-- ── APP NODES (left) ── -->
+        <rect x="30" y="46" width="390" height="300" rx="10"
+              fill="var(--node-a)" stroke="var(--stroke)" stroke-width="1.5"/>
+        <text x="225" y="68" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg-mid)" font-weight="600" letter-spacing="0.08em">APP-NODES  (3× t3.small)  |  label: role=app</text>
+        <text x="225" y="84" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">No taint — accepts most pods</text>
+
+        <!-- FastAPI pods (anti-affinity spreads them) -->
+        <rect x="46" y="98" width="102" height="38" rx="6"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="97" y="121" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--accent)">FastAPI #1</text>
+        <rect x="156" y="98" width="102" height="38" rx="6"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="207" y="121" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--accent)">FastAPI #2</text>
+        <!-- Anti-affinity label -->
+        <path d="M148,117 L156,117" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <text x="152" y="109" text-anchor="middle" font-family="var(--f-body)"
+              font-size="9" fill="var(--bad)">anti-affinity</text>
+        <text x="152" y="149" text-anchor="middle" font-family="var(--f-body)"
+              font-size="9" fill="var(--bad)">→ different nodes</text>
+
+        <rect x="270" y="98" width="128" height="38" rx="6"
+              fill="var(--good-bg)" stroke="var(--good)" stroke-width="1.5"/>
+        <text x="334" y="121" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--good)">pgvector</text>
+
+        <!-- Prometheus + Grafana -->
+        <rect x="46" y="158" width="102" height="38" rx="6"
+              fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5"/>
+        <text x="97" y="181" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--warn)">Prometheus</text>
+
+        <rect x="156" y="158" width="102" height="38" rx="6"
+              fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1"/>
+        <text x="207" y="181" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--warn)">Grafana</text>
+
+        <rect x="270" y="158" width="128" height="38" rx="6"
+              fill="var(--bg-card)" stroke="var(--border)" stroke-width="1"/>
+        <text x="334" y="181" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--fg-mid)">chaoskube</text>
+
+        <!-- Promtail DaemonSet (all nodes) -->
+        <rect x="46" y="220" width="352" height="36" rx="6"
+              fill="var(--bg-code)" stroke="var(--border)" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="222" y="239" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">🔄 Promtail DaemonSet (tolerance: Exists → runs on ALL nodes)</text>
+
+        <!-- Namespaces label -->
+        <text x="225" y="282" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">Namespaces: sre-ai-agent · sre-ai-agent-llm · monitoring · chaos</text>
+
+        <!-- ── AGENT NODE (right) ── -->
+        <rect x="440" y="46" width="236" height="300" rx="10"
+              fill="var(--node-b)" stroke="var(--warn)" stroke-width="2.5"/>
+        <text x="558" y="68" text-anchor="middle" font-family="var(--f-body)"
+              font-size="11" fill="var(--fg)" font-weight="600" letter-spacing="0.06em">AGENT-NODE  (1× t3.small)</text>
+        <text x="558" y="84" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">label: role=agent</text>
+
+        <!-- Taint badge -->
+        <rect x="458" y="92" width="200" height="26" rx="5"
+              fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5"/>
+        <text x="558" y="109" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="10" fill="var(--warn)" font-weight="600">🚫 taint: workload=ai-agent:NoSchedule</text>
+
+        <!-- LangGraph pod (has toleration + affinity) -->
+        <rect x="458" y="130" width="200" height="60" rx="8"
+              fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="558" y="153" text-anchor="middle" font-family="var(--f-body)"
+              font-size="12" fill="var(--fg)" font-weight="600">🤖 LangGraph Agent</text>
+        <text x="558" y="169" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="9" fill="var(--accent)">toleration: workload=ai-agent</text>
+        <text x="558" y="183" text-anchor="middle" font-family="var(--f-mono)"
+              font-size="9" fill="var(--accent)">affinity: role=agent</text>
+
+        <!-- Promtail on agent node too -->
+        <rect x="458" y="204" width="200" height="36" rx="6"
+              fill="var(--bg-code)" stroke="var(--border)" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="558" y="226" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--fg-muted)">🔄 Promtail (tolerates all)</text>
+
+        <!-- Legend bottom -->
+        <text x="558" y="280" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--good)" font-weight="600">✓ Reserved exclusively</text>
+        <text x="558" y="296" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--good)">for RCA work</text>
+
+        <!-- Blocked arrow from FastAPI to agent-node -->
+        <path d="M334,117 C390,117 430,117 440,117" stroke="var(--bad)" stroke-width="1.5"
+              fill="none" stroke-dasharray="4,3"/>
+        <text x="385" y="109" text-anchor="middle" font-family="var(--f-body)"
+              font-size="10" fill="var(--bad)">🚫 blocked by taint</text>
+      </svg>
+      <div class="diagram-caption">Your full SRE cluster — three mechanisms working together: taint (repels), toleration (allows), affinity (attracts).</div>
+    </div>
+
+    <h3>The complete LangGraph deployment spec</h3>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dot"></div>langgraph-deployment.yaml — all three mechanisms</div>
+      <pre>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langgraph-agent
+  namespace: sre-ai-agent-llm
+spec:
+  replicas: 1
+  template:
+    spec:
+      # 1. TOLERATION — "I can handle the taint on agent-nodes"
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "ai-agent"
+          effect: "NoSchedule"
+
+      # 2. NODE AFFINITY — "I want to land on role=agent specifically"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: role
+                    operator: In
+                    values: ["agent"]
+
+      containers:
+        - name: langgraph
+          image: 123456789.dkr.ecr.ap-south-1.amazonaws.com/langgraph-agent:latest
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"</pre>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section id="summary" class="section">
+    <div class="section-label">Part 6</div>
+    <h2>Quick Reference</h2>
+
+    <table class="cmp-table">
+      <thead>
+        <tr>
+          <th>Mechanism</th>
+          <th>Set on</th>
+          <th>Direction</th>
+          <th>Use for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Taint</strong></td>
+          <td>Node</td>
+          <td>Node <em>repels</em> pods</td>
+          <td>Reserve a node; keep noisy neighbours out</td>
+        </tr>
+        <tr>
+          <td><strong>Toleration</strong></td>
+          <td>Pod</td>
+          <td>Pod <em>bypasses</em> a taint</td>
+          <td>Allow a specific pod onto a reserved node</td>
+        </tr>
+        <tr>
+          <td><strong>Node Affinity</strong></td>
+          <td>Pod</td>
+          <td>Pod <em>attracted</em> to node label</td>
+          <td>Guarantee pod lands on specific hardware</td>
+        </tr>
+        <tr>
+          <td><strong>Pod Affinity</strong></td>
+          <td>Pod</td>
+          <td>Pod <em>co-located</em> with another pod</td>
+          <td>Low-latency: app + cache on same node</td>
+        </tr>
+        <tr>
+          <td><strong>Pod Anti-Affinity</strong></td>
+          <td>Pod</td>
+          <td>Pod <em>separated</em> from another pod</td>
+          <td>High availability: spread replicas across nodes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h4>🔒 Taint + Toleration</h4>
+        <p>The access control pair. Taint locks the node; toleration is the key. Always used together. Neither is useful without the other.</p>
+      </div>
+      <div class="summary-card">
+        <h4>🧲 Affinity (Node)</h4>
+        <p>Tells a pod <em>where</em> to go. Hard rules cause Pending forever on failure; soft rules fall back gracefully.</p>
+      </div>
+      <div class="summary-card">
+        <h4>👥 Pod Affinity</h4>
+        <p>Group latency-sensitive workloads. FastAPI and its Redis cache on the same node cuts network hops to zero.</p>
+      </div>
+      <div class="summary-card">
+        <h4>↔ Pod Anti-Affinity</h4>
+        <p>Force replicas apart. If one node dies, the other replicas survive. The most common HA pattern in Kubernetes.</p>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="callout good">
+      <div class="callout-title">The golden rule</div>
+      <p><strong>Taint</strong> = the node sets the rules.<br>
+      <strong>Toleration</strong> = the pod says "I accept your rules."<br>
+      <strong>Affinity</strong> = the pod says "And I specifically want to go there."<br><br>
+      For guaranteed exclusive placement: you need all three. Taint keeps others out. Toleration lets you in. Affinity makes sure you actually go there instead of somewhere else that has no taint.</p>
+    </div>
+
+    <p style="margin-top:2rem; font-size:0.88rem; color:var(--fg-muted)">
+      Written as part of the SRE-AI-Agent-Observability project deep-dive series — covering the end-to-end architecture from EKS bootstrap to LangGraph RCA pipelines on Kubernetes.
+    </p>
+  </section>
+
+</div>
+
+</body></html>

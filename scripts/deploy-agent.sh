@@ -15,12 +15,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-source "$SCRIPT_DIR/load-secrets.sh"
+#source "$SCRIPT_DIR/load-secrets.sh"
 
-AWS_REGION="us-east-1"
-AWS_ACCOUNT="502274764708"
-AGENT_ECR="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/sre-ai-agent-llm"
-CLUSTER_NAME="sre-ai-agent-dev-eks-cluster"
+AWS_REGION="ap-south-1"
+CLUSTER_NAME="sre-ai-agent-cluster"
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+AGENT_ECR="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/sre-ai-agent-llm"
 
 echo "========================================"
 echo " SRE AI Agent — Deploy Agent to EKS"
