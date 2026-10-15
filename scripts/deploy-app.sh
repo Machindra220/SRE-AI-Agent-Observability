@@ -1,3 +1,4 @@
+AI-Agent-Observability$ cat scripts/deploy-app.sh
 #!/bin/bash
 # =============================================================================
 # scripts/deploy-app.sh
@@ -98,12 +99,11 @@ aws ecr get-login-password --region "$AWS_REGION" | \
 GIT_SHA=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo "latest")
 log "Git SHA: $GIT_SHA"
 
-# Build from app/Dockerfile
-cd "$PROJECT_ROOT"
+# Build with app/ as the context — Dockerfile references src/ relative to app/
 docker build \
   -t "${APP_ECR}:${GIT_SHA}" \
   -t "${APP_ECR}:latest" \
-  -f app/Dockerfile .
+  "$PROJECT_ROOT/app"
 
 docker push "${APP_ECR}:${GIT_SHA}"
 docker push "${APP_ECR}:latest"
@@ -331,4 +331,4 @@ echo ""
 echo "  Image: ${APP_ECR}:${GIT_SHA}"
 echo ""
 echo "  Next: ./scripts/deploy-agent.sh"
-echo ""
+echo ""machindra@DESKTOP-EO7I576:~/SRE-AI-Agent-Observability$

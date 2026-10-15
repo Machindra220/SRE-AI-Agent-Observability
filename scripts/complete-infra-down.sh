@@ -169,7 +169,7 @@ for SECRET in grafana-cloud-secret; do
 done
 
 # sre-ai-agent-llm
-for SECRET in gemini-api-secret ecr-pull-secret; do
+for SECRET in gemini-api-secret sre-ai-agent-llm-secret ecr-pull-secret; do
   kubectl delete secret "$SECRET" -n sre-ai-agent-llm --ignore-not-found=true
   log "Deleted secret: sre-ai-agent-llm/$SECRET ✓"
 done
@@ -179,6 +179,27 @@ for SECRET in ecr-pull-secret; do
   kubectl delete secret "$SECRET" -n sre-ai-agent --ignore-not-found=true
   log "Deleted secret: sre-ai-agent/$SECRET ✓"
 done
+
+# =============================================================================
+# Step 4b — Delete chaoskube cluster-scoped RBAC
+# ClusterRole/ClusterRoleBinding are cluster-scoped — they survive namespace
+# deletion and must be removed explicitly before the namespace is torn down.
+# (Helm-owned SA inside the chaos namespace is handled by namespace deletion below)
+# =============================================================================
+step "Step 4b — Deleting chaoskube cluster-scoped RBAC"
+
+# Uninstall helm release first so Helm doesn't complain about missing resources
+if helm status chaoskube -n chaos &>/dev/null; then
+  helm uninstall chaoskube --namespace chaos --timeout 2m
+  log "chaoskube helm release uninstalled ✓"
+else
+  warn "chaoskube helm release not found — skipping"
+fi
+
+kubectl delete clusterrolebinding chaoskube --ignore-not-found=true \
+  && log "ClusterRoleBinding/chaoskube deleted ✓" || true
+kubectl delete clusterrole chaoskube --ignore-not-found=true \
+  && log "ClusterRole/chaoskube deleted ✓" || true
 
 # =============================================================================
 # Step 5 — Delete namespaces
@@ -213,6 +234,20 @@ eksctl delete iamserviceaccount \
   --namespace kube-system \
   --region "$AWS_REGION" \
   2>/dev/null && log "EBS CSI IRSA deleted ✓" || warn "EBS CSI IRSA not found — skipping"
+
+# EBS CSI IAM role was created with raw aws iam (not eksctl CloudFormation),
+# so eksctl cannot delete it — must use aws iam directly.
+EBS_ROLE_NAME="AmazonEKS_EBS_CSI_DriverRole"
+if aws iam get-role --role-name "$EBS_ROLE_NAME" &>/dev/null; then
+  aws iam detach-role-policy \
+    --role-name "$EBS_ROLE_NAME" \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+    2>/dev/null || true
+  aws iam delete-role --role-name "$EBS_ROLE_NAME"
+  log "IAM role $EBS_ROLE_NAME deleted ✓"
+else
+  warn "IAM role $EBS_ROLE_NAME not found — skipping"
+fi
 
 # =============================================================================
 # Step 7 — Delete node groups
@@ -291,10 +326,12 @@ echo -e "${GREEN}  All resources for '$CLUSTER_NAME' removed${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo "  Resources cleaned up:"
-echo "    ✓ Helm:          kube-prometheus-stack, aws-load-balancer-controller"
+echo "    ✓ Helm:          kube-prometheus-stack, aws-load-balancer-controller, chaoskube"
 echo "    ✓ Addon:         aws-ebs-csi-driver"
+echo "    ✓ RBAC:          chaoskube ClusterRole/ClusterRoleBinding"
 echo "    ✓ Namespaces:    sre-ai-agent, sre-ai-agent-llm, monitoring, chaos"
 echo "    ✓ IRSA:          ALB controller, EBS CSI"
+echo "    ✓ IAM roles:     AmazonEKS_EBS_CSI_DriverRole"
 echo "    ✓ Node groups:   agent-nodes, app-nodes"
 echo "    ✓ EKS cluster:   $CLUSTER_NAME"
 echo "    ✓ IAM policy:    $POLICY_NAME"
