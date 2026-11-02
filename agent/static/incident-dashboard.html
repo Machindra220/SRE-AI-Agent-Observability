@@ -592,10 +592,10 @@ async function fetchFullRCA(incidentId, idx) {
   rcaBox.textContent = 'Loading...';
   try {
     // Try JSON endpoint first
-    const res = await fetch(`${agentBaseUrl}/agent/rca/${incidentId}`);
+    const res = await fetch(`${agentBaseUrl}/agent/rca/${incidentId}/json`);
     if (res.ok) {
       const data = await res.json();
-      rcaBox.textContent = data.rca || data.diagnosis || data.response ||
+      rcaBox.textContent = data.rca_report || data.rca || data.diagnosis || data.response ||
         JSON.stringify(data, null, 2);
       allIncidents[idx] = {...allIncidents[idx], rca: rcaBox.textContent};
     } else {

@@ -125,7 +125,7 @@ Full runbooks available at: `docs/runbooks/`
 ## Next Steps
 
 1. Review the immediate steps listed in the Diagnosis section above
-2. Validate findings against live Datadog metrics and logs
+2. Validate findings against live Grafana/Prometheus metrics and logs
 3. Execute remediation steps and monitor recovery
 4. Update this RCA with actual root cause once confirmed
 5. Create a post-mortem ticket if duration > 30 minutes

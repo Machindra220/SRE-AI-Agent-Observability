@@ -8,6 +8,7 @@ __pycache__/
 .env
 nohup.out
 .venv/
+.kuberlr/
 
 # Terraform
 **/.terraform/

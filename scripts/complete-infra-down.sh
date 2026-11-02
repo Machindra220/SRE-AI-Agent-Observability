@@ -169,7 +169,7 @@ for SECRET in grafana-cloud-secret; do
 done
 
 # sre-ai-agent-llm
-for SECRET in gemini-api-secret sre-ai-agent-llm-secret ecr-pull-secret; do
+for SECRET in sre-ai-agent-llm-secret ecr-pull-secret; do
   kubectl delete secret "$SECRET" -n sre-ai-agent-llm --ignore-not-found=true
   log "Deleted secret: sre-ai-agent-llm/$SECRET ✓"
 done

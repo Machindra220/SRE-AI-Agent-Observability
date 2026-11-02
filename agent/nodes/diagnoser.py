@@ -1,7 +1,7 @@
 # =============================================================
 # agent/nodes/diagnoser.py
 # Node 3 — The AI reasoning step. Sends alert + runbook to
-# Gemini and gets a root cause diagnosis back.
+# OpenAI and gets a root cause diagnosis back.
 #
 # Input:  state["alert_parsed"], state["runbook_context"]
 # Output: state["diagnosis"], state["confidence_score"]
@@ -10,17 +10,19 @@
 import os
 import json
 import logging
-import google.generativeai as genai
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage
 from agent.state import AgentState
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini client — reads GEMINI_API_KEY from environment
+# Configure OpenAI client — reads OPENAI_API_KEY from environment
 # Key is loaded from .env file via python-dotenv in main.py
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-
-# gemini-1.5-flash — fast, free tier, good quality for SRE diagnosis
-MODEL = "gemini-2.5-flash"
+llm = ChatOpenAI(
+    model="gpt-4o-mini",   # cheapest, very capable
+    temperature=0,
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 LOW_CONFIDENCE_THRESHOLD = 0.60
 MAX_RETRIES = 2
@@ -34,7 +36,7 @@ say so in root_cause and set confidence below 0.5."""
 
 def build_diagnosis_prompt(state: AgentState) -> str:
     """
-    Build the prompt sent to Gemini.
+    Build the prompt sent to OpenAI.
 
     Prompt engineering principles used:
     1. Specific role ("senior SRE")
@@ -46,9 +48,7 @@ def build_diagnosis_prompt(state: AgentState) -> str:
     alert   = state["alert_parsed"]
     runbook = state["runbook_context"]
 
-    return f"""{SYSTEM_PROMPT}
-
-## Alert Details
+    return f"""## Alert Details
 - Alert Name: {alert['alert_name']}
 - Severity:   {alert['severity']}
 - Service:    {alert['service']}
@@ -90,17 +90,18 @@ def diagnose(state: AgentState) -> AgentState:
     prompt = build_diagnosis_prompt(state)
 
     try:
-        # Initialise Gemini model
-        model = genai.GenerativeModel("gemini-2.5-flash")
-
-        # Call Gemini API
-        # response.text — Gemini returns text directly
-        # (unlike Anthropic's response.content[0].text)
-        response     = model.generate_content(prompt)
-        raw_response = response.text
+        # Call OpenAI via LangChain
+        # SystemMessage sets the SRE persona
+        # HumanMessage carries the alert + runbook context
+        messages = [
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(content=prompt),
+        ]
+        response     = llm.invoke(messages)
+        raw_response = response.content
         logger.info(f"[Node 3] Raw LLM response: {raw_response[:200]}...")
 
-        # Strip markdown code fences Gemini sometimes adds
+        # Strip markdown code fences GPT sometimes adds
         clean  = raw_response.strip().replace("```json", "").replace("```", "").strip()
         result = json.loads(clean)
 

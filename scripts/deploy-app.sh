@@ -1,4 +1,3 @@
-AI-Agent-Observability$ cat scripts/deploy-app.sh
 #!/bin/bash
 # =============================================================================
 # scripts/deploy-app.sh
@@ -331,4 +330,3 @@ echo ""
 echo "  Image: ${APP_ECR}:${GIT_SHA}"
 echo ""
 echo "  Next: ./scripts/deploy-agent.sh"
-echo ""machindra@DESKTOP-EO7I576:~/SRE-AI-Agent-Observability$

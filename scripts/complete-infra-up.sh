@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# scripts/complete-infra-up.sh
+# scripts/complete-infra-up.sh  [FIXED — OpenAI, no Gemini]
 # Bootstrap full EKS infrastructure for SRE-AI-Agent-Observability
 #
 # Idempotent — safe to re-run. Every step checks if resources already exist.
 #
 # Secrets loaded from .env:
-#   GEMINI_API_KEY
+#   OPENAI_API_KEY
 #   GRAFANA_CLOUD_API_KEY
 #   GRAFANA_CLOUD_REMOTE_WRITE_URL
 #   GRAFANA_CLOUD_USERNAME
@@ -41,9 +41,9 @@ EKS_VERSION="1.32"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-APP_NODE_TYPE="t3.small"
+APP_NODE_TYPE="t3.medium"
 APP_NODE_COUNT=3
-AGENT_NODE_TYPE="t3.small"
+AGENT_NODE_TYPE="t3.medium"
 AGENT_NODE_COUNT=1
 
 INSTALL_DATADOG=false
@@ -66,7 +66,7 @@ else
   warn ".env not found — secrets must be exported manually"
 fi
 
-: "${GEMINI_API_KEY:?ERROR: GEMINI_API_KEY not set}"
+: "${OPENAI_API_KEY:?ERROR: OPENAI_API_KEY not set}"
 : "${GRAFANA_CLOUD_API_KEY:?ERROR: GRAFANA_CLOUD_API_KEY not set}"
 : "${GRAFANA_CLOUD_REMOTE_WRITE_URL:?ERROR: GRAFANA_CLOUD_REMOTE_WRITE_URL not set}"
 : "${GRAFANA_CLOUD_USERNAME:?ERROR: GRAFANA_CLOUD_USERNAME not set}"
@@ -223,8 +223,6 @@ log "AWS Load Balancer Controller v${ALB_CHART_VERSION} installed ✓"
 # =============================================================================
 step "Step 4 — EBS CSI Driver"
 
-# Build trust policy directly — avoids eksctl CloudFormation ghost-state bug
-# where eksctl silently skips if SA exists in K8s but CFN stack is gone (or vice versa)
 OIDC_ID=$(aws eks describe-cluster \
   --name "$CLUSTER_NAME" \
   --region "$AWS_REGION" \
@@ -267,9 +265,7 @@ TRUSTEOF
   log "IAM role $EBS_ROLE_NAME created ✓"
 fi
 
-# Create SA with IRSA annotation (idempotent)
 if kubectl get sa ebs-csi-controller-sa -n kube-system &>/dev/null; then
-  # Ensure annotation is set (may be missing if SA was created without it)
   kubectl annotate serviceaccount ebs-csi-controller-sa \
     -n kube-system \
     eks.amazonaws.com/role-arn="$EBS_ROLE_ARN" \
@@ -283,7 +279,6 @@ else
   log "ebs-csi-controller-sa created with IRSA annotation ✓"
 fi
 
-# Handle CREATE_FAILED by deleting and recreating
 ADDON_STATUS=$(aws eks describe-addon \
   --cluster-name "$CLUSTER_NAME" \
   --addon-name aws-ebs-csi-driver \
@@ -359,11 +354,14 @@ done
 # =============================================================================
 step "Step 7 — Kubernetes secrets"
 
-kubectl create secret generic gemini-api-secret \
-  --from-literal=GEMINI_API_KEY="$GEMINI_API_KEY" \
+# OpenAI key + pgvector password (used by deploy-agent.sh but pre-created here
+# so the secret exists before the agent deployment)
+kubectl create secret generic sre-ai-agent-llm-secret \
+  --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY" \
+  --from-literal=PGPASSWORD="sre_pass" \
   --namespace sre-ai-agent-llm \
   --dry-run=client -o yaml | kubectl apply -f -
-log "gemini-api-secret → sre-ai-agent-llm ✓"
+log "sre-ai-agent-llm-secret (OPENAI_API_KEY + PGPASSWORD) → sre-ai-agent-llm ✓"
 
 kubectl create secret generic grafana-cloud-secret \
   --from-literal=api-key="$GRAFANA_CLOUD_API_KEY" \
@@ -378,7 +376,6 @@ log "grafana-cloud-secret → monitoring ✓"
 step "Step 8 — kube-prometheus-stack"
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
-# Update only the prometheus-community repo — avoids GitHub download timeouts
 helm repo update prometheus-community 2>/dev/null || true
 
 cat > /tmp/kube-prometheus-values.yaml <<EOF
@@ -426,7 +423,6 @@ kubeStateMetrics:
   enabled: true
 EOF
 
-# --version pins to cached chart, no --wait (avoids HTTP/2 hang)
 helm upgrade --install kube-prometheus-stack \
   prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
@@ -434,20 +430,12 @@ helm upgrade --install kube-prometheus-stack \
   --version "$PROM_CHART_VERSION" \
   --timeout 10m
 
-# Poll pods instead of --wait
 log "Waiting for Prometheus operator..."
-kubectl wait --for=condition=Ready pod \
-  -l app.kubernetes.io/name=prometheus-operator \
-  -n monitoring --timeout=180s
+  kubectl rollout status deployment/kube-prometheus-stack-operator -n monitoring --timeout=180s
 
 log "Waiting for Prometheus..."
-kubectl wait --for=condition=Ready pod \
-  -l app.kubernetes.io/name=prometheus \
-  -n monitoring --timeout=300s
+  kubectl rollout status statefulset/prometheus-kube-prometheus-stack-prometheus -n monitoring --timeout=300s
 
-log "kube-prometheus-stack v${PROM_CHART_VERSION} installed ✓"
-
-# =============================================================================
 # Step 9 — ServiceMonitor + PrometheusRules
 # =============================================================================
 step "Step 9 — ServiceMonitor + PrometheusRules"

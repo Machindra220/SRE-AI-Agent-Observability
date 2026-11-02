@@ -31,19 +31,19 @@ variable "eks_node_instance_type" {
 variable "eks_node_desired" {
   description = "Desired Numbers of EKS Nodes"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "eks_node_min" {
   description = "Minimum EKS nodes"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "eks_node_max" {
   description = "Max EKS nodes"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "agent_node_instance_type" {

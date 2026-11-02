@@ -36,9 +36,9 @@ module "eks" {
     # Instance: t3.medium (2 vCPU, 4GB RAM) — more RAM for embeddings
     # Taint: only agent pods scheduled here (no_schedule for others)
     agent_nodes = {
-      instance_types = ["t3.small"]
+      instance_types = [var.agent_node_instance_type]
       min_size       = 1
-      max_size       = 1
+      max_size       = 3
       desired_size   = 1
 
       labels = {

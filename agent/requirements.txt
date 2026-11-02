@@ -10,11 +10,10 @@
 langgraph==0.2.28          # LangGraph state machine framework
 langchain==0.3.1           # LangChain core utilities
 
-# ── LLM + Embeddings — Google Gemini ─────────────────────────
-google-generativeai==0.8.3 # Gemini API — used for both LLM and embeddings
-                           # LLM: gemini-1.5-flash (diagnoser.py)
-                           # Embeddings: text-embedding-004 (embeddings.py)
-                           # Free tier, no local model, zero RAM spike
+# ── LLM — OpenAI ─────────────────────────────────────────────
+langchain-openai==0.2.1    # OpenAI integration for LangChain (gpt-4o-mini)
+openai==1.51.0             # OpenAI Python SDK
+httpx==0.27.2              # Pin httpx — openai 1.51 requires httpx<0.28
 
 # ── Embeddings (lightweight local — no torch/CUDA required) ───
 fastembed==0.3.6           # CPU-native embeddings, no GPU needed
@@ -27,9 +26,6 @@ pgvector==0.3.2            # pgvector Python adapter
 # ── API Server ────────────────────────────────────────────────
 fastapi==0.115.0           # FastAPI web framework
 uvicorn==0.30.6            # ASGI server to run FastAPI
-
-# ── Observability ─────────────────────────────────────────────
-ddtrace==2.11.3            # Datadog APM tracing
 
 # ── Utilities ─────────────────────────────────────────────────
 pydantic==2.9.2            # Request/response validation

@@ -6,7 +6,7 @@
 # Steps:
 #   1. Create agent ECR repo (if not exists)
 #   2. Build and push agent Docker image
-#   3. Create agent Kubernetes secret (Gemini API key)
+#   3. Create agent Kubernetes secret (OpenAI API key)
 #   4. Deploy agent to EKS (namespace, configmap, deployment, service)
 #   5. Initialize pgvector schema
 #   6. Index runbooks into pgvector
@@ -46,7 +46,7 @@ ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 AGENT_ECR="${ECR_REGISTRY}/sre-ai-agent-llm"
 NAMESPACE="sre-ai-agent-llm"
 
-: "${GEMINI_API_KEY:?ERROR: GEMINI_API_KEY not set in .env}"
+: "${OPENAI_API_KEY:?ERROR: OPENAI_API_KEY not set in .env}"
 
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 log "Cluster:   $CLUSTER_NAME  |  Region: $AWS_REGION"
@@ -96,7 +96,7 @@ log "Agent image pushed: ${AGENT_ECR}:latest ✓"
 step "Step 3 — Create Agent Kubernetes Secret"
 
 kubectl create secret generic sre-ai-agent-llm-secret \
-  --from-literal=GEMINI_API_KEY="$GEMINI_API_KEY" \
+  --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY" \
   --from-literal=PGPASSWORD="sre_pass" \
   --namespace "$NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
@@ -153,6 +153,9 @@ spec:
         app: sre-ai-agent-llm
       annotations:
         deploy-time: "$(date -u +%Y%m%dT%H%M%SZ)"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/metrics"
     spec:
       nodeSelector:
         role: agent
@@ -173,11 +176,11 @@ spec:
             - configMapRef:
                 name: sre-ai-agent-llm-config
           env:
-            - name: GEMINI_API_KEY
+            - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: sre-ai-agent-llm-secret
-                  key: GEMINI_API_KEY
+                  key: OPENAI_API_KEY
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:

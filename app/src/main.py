@@ -3,10 +3,6 @@ import random
 import time
 import uuid
 
-# Patch ddtrace BEFORE importing FastAPI - enables automatic instrumentation
-from ddtrace import patch, tracer
-patch(fastapi=True)
-
 import structlog
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -38,17 +34,6 @@ async def request_middleware(request: Request, call_next):
 
     duration_ms = round((time.time() - start) * 1000, 2)
 
-    # Get current trace context for log correlation
-    span = tracer.current_span()
-    if span:
-        trace_id = span.trace_id & 0xFFFFFFFFFFFFFFFF  # Convert to 64-bit
-        span_id = span.span_id
-    else:
-        trace_id = None
-        span_id = None
-    trace_id = span.trace_id if span else None
-    span_id = span.span_id if span else None
-
     log.info(
         "request",
         method=request.method,
@@ -56,8 +41,6 @@ async def request_middleware(request: Request, call_next):
         status=response.status_code,
         duration_ms=duration_ms,
         request_id=request_id,
-        **{"dd.trace_id": str(trace_id) if trace_id else None},
-        **{"dd.span_id": str(span_id) if span_id else None},
     )
     response.headers["X-Request-ID"] = request_id
     return response
@@ -117,7 +100,6 @@ async def slow():
 @app.get("/api/error")
 async def error():
     error_type = random.choice(["client", "server", "server"])
-
     if error_type == "client":
         return JSONResponse(status_code=400, content={"error": "bad request", "type": "client"})
     else:
