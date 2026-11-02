@@ -47,6 +47,7 @@ def build_diagnosis_prompt(state: AgentState) -> str:
     """
     alert   = state["alert_parsed"]
     runbook = state["runbook_context"]
+    raw_logs = state.get("raw_logs") or "No logs available"
 
     return f"""## Alert Details
 - Alert Name: {alert['alert_name']}

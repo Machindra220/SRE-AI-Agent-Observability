@@ -557,6 +557,11 @@ DEPLOY_SCRIPTS=(
   "$SCRIPT_DIR/deploy-loki-promtail.sh"
 )
 
+# RBAC — allow agent pod to read pod logs across namespaces
+log "Applying agent RBAC (log reader)..."
+kubectl apply -f "$PROJECT_ROOT/kubernetes/sre-agent-rbac.yaml"
+log "Agent RBAC applied ✓"
+
 TOTAL=${#DEPLOY_SCRIPTS[@]}
 CURRENT=0
 
@@ -622,7 +627,7 @@ echo "  URLs:"
 echo "    App health:    http://${APP_LB}/api/health"
 echo "    App docs:      http://${APP_LB}/docs"
 echo "    Agent health:  http://${AGENT_LB}/agent/health"
-echo "    Agent triage:  http://${AGENT_LB}/agent/triage   ← Grafana webhook"
+echo "    Agent triage:  http://${AGENT_LB}/agent/grafana-webhook   ← Grafana webhook"
 echo ""
 echo "  ⚠️  Set Grafana Cloud contact point webhook to:"
 echo "      http://${AGENT_LB}/agent/triage"

@@ -554,6 +554,10 @@ function renderTable() {
               </div>
             </div>
           </div>
+          <div class="expand-section" id="logs-section-${idx}" style="display:none;margin-top:12px">
+            <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:8px">POD LOGS AT INCIDENT TIME</h4>
+            <pre id="logsBox-${idx}" style="max-height:200px;overflow-y:auto;background:#0d1117;color:#8b949e;font-size:11px;padding:12px;border-radius:6px;border:1px solid #30363d;white-space:pre-wrap;word-break:break-all;"></pre>
+          </div>
           <div class="expand-actions">
             <button class="btn btn-ghost" onclick="openModal(${idx});event.stopPropagation()">
               ⤢ Full View
@@ -598,6 +602,16 @@ async function fetchFullRCA(incidentId, idx) {
       rcaBox.textContent = data.rca_report || data.rca || data.diagnosis || data.response ||
         JSON.stringify(data, null, 2);
       allIncidents[idx] = {...allIncidents[idx], rca: rcaBox.textContent};
+      // Show pod logs if present
+      const logsBox = document.getElementById(`logsBox-${idx}`);
+      const logsSection = document.getElementById(`logs-section-${idx}`);
+      if (logsBox && logsSection) {
+        const logs = data.raw_logs || '';
+        if (logs && logs !== 'No logs available') {
+          logsBox.textContent = logs;
+          logsSection.style.display = 'block';
+        }
+      }
     } else {
       rcaBox.textContent = `RCA endpoint returned ${res.status}`;
     }
@@ -645,6 +659,10 @@ function openModal(idx) {
       <h4>RCA / Full Diagnosis</h4>
       <div class="rca-box">${inc.rca || inc.diagnosis || inc.response || 'No RCA data available — click Load RCA in the table row first.'}</div>
     </div>
+    <div class="section-label">POD LOGS AT INCIDENT TIME</div>
+    <pre id="modalLogsBox-${idx}" style="display:none; max-height:200px; overflow-y:auto;
+     background:#0d1117; color:#8b949e; font-size:11px; padding:12px;
+     border-radius:6px; border:1px solid #30363d;"></pre>
     <div class="modal-section">
       <h4>Raw JSON</h4>
       <div class="rca-box" style="font-size:11px;font-family:monospace">${JSON.stringify(inc, null, 2)}</div>

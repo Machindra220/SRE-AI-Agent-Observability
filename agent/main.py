@@ -486,6 +486,7 @@ def triage(request: TriageRequest, http_request: Request):
             "rca_report":   rca_report,
             "generated_at": generated_at,
             "error":        result.get("error"),
+            "raw_logs":     result.get("raw_logs", ""),
         }
         save_incident_to_db(rca_store[incident_id])  # ADD THIS LINE
 

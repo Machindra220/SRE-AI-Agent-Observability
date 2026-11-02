@@ -20,6 +20,7 @@ from agent.nodes.alert_parser import parse_alert
 from agent.nodes.runbook_retriever import retrieve_runbook
 from agent.nodes.diagnoser import diagnose, should_retry
 from agent.nodes.rca_writer import write_rca
+from agent.nodes.log_fetcher import fetch_logs 
 
 
 def build_graph() -> StateGraph:
@@ -44,12 +45,14 @@ def build_graph() -> StateGraph:
     graph.add_node("runbook_retriever",  retrieve_runbook)
     graph.add_node("diagnoser",          diagnose)
     graph.add_node("rca_writer",         write_rca)
+    graph.add_node("log_fetcher",       fetch_logs)
 
     # Step 3: Set the entry point — first node to run
     graph.set_entry_point("alert_parser")
 
     # Step 4: Add linear edges (unconditional — always go to next node)
-    graph.add_edge("alert_parser",      "runbook_retriever")
+    graph.add_edge("alert_parser",     "log_fetcher")      # ← CHANGE
+    graph.add_edge("log_fetcher",      "runbook_retriever") # ← ADD
     graph.add_edge("runbook_retriever", "diagnoser")
 
     # Step 5: Add conditional edge after diagnoser
@@ -73,4 +76,5 @@ def build_graph() -> StateGraph:
 
 # Module-level compiled graph instance
 # Imported by main.py so the graph is compiled once at startup
+#   → log_fetcher        (NEW — fetches pod logs)
 agent_graph = build_graph()

@@ -57,6 +57,8 @@ class AgentState(TypedDict):
     # ── Node 2 output ─────────────────────────────────────────
     runbook_context: Optional[str]         # combined runbook chunks as text
     runbook_source:  Optional[str]         # which runbook file was matched
+    # ── Log Fetcher output ─────────────────────────────────────
+    raw_logs: Optional[str]                # recent pod logs fetched at triage time
 
     # ── Node 3 output ─────────────────────────────────────────
     diagnosis:        Optional[str]        # LLM root cause diagnosis
@@ -87,6 +89,7 @@ def initial_state(alert: AlertInput) -> AgentState:
         search_query     = None,
         runbook_context  = None,
         runbook_source   = None,
+        raw_logs         = None,
         diagnosis        = None,
         confidence_score = None,
         rca_report       = None,

@@ -201,6 +201,11 @@ kubectl delete clusterrolebinding chaoskube --ignore-not-found=true \
 kubectl delete clusterrole chaoskube --ignore-not-found=true \
   && log "ClusterRole/chaoskube deleted ✓" || true
 
+# SRE agent log-reader RBAC
+kubectl delete clusterrolebinding sre-agent-log-reader --ignore-not-found=true \
+  && log "ClusterRoleBinding/sre-agent-log-reader deleted ✓" || true
+kubectl delete clusterrole sre-agent-log-reader --ignore-not-found=true \
+  && log "ClusterRole/sre-agent-log-reader deleted ✓" || true
 # =============================================================================
 # Step 5 — Delete namespaces
 # (This deletes ALL resources inside: deployments, services, PVCs, configmaps)
@@ -328,7 +333,7 @@ echo ""
 echo "  Resources cleaned up:"
 echo "    ✓ Helm:          kube-prometheus-stack, aws-load-balancer-controller, chaoskube"
 echo "    ✓ Addon:         aws-ebs-csi-driver"
-echo "    ✓ RBAC:          chaoskube ClusterRole/ClusterRoleBinding"
+echo "    ✓ RBAC:          chaoskube ClusterRole/ClusterRoleBinding, sre-agent-log-reader"
 echo "    ✓ Namespaces:    sre-ai-agent, sre-ai-agent-llm, monitoring, chaos"
 echo "    ✓ IRSA:          ALB controller, EBS CSI"
 echo "    ✓ IAM roles:     AmazonEKS_EBS_CSI_DriverRole"
