@@ -23,10 +23,13 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from rag.retriever import get_db_connection
+from prometheus_client import generate_latest
+from evals.metrics import EVAL_REGISTRY
+from evals.eval_runner import run_evals
 
 from agent.state import AlertInput, initial_state
 from agent.graph import agent_graph
@@ -591,6 +594,17 @@ def history(http_request: Request):
         ]
     }
 
+@app.get("/eval/metrics")
+def eval_metrics():
+    return Response(
+        content=generate_latest(EVAL_REGISTRY),
+        media_type="text/plain; version=0.0.4; charset=utf-8"
+    )
+
+@app.post("/eval/run")
+async def run_eval_suite():
+    results = await run_evals()  # or run_evals() if not async
+    return {"status": "completed", "results": results}
 
 @app.get("/agent/dashboard", response_class=HTMLResponse)
 def dashboard():

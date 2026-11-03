@@ -21,6 +21,7 @@ COPY agent/ ./agent/
 COPY rag/ ./rag/
 COPY docs/runbooks/ ./docs/runbooks/
 COPY vector-db/ ./vector-db/
+COPY evals/ ./evals/    
 
 # Set working directory for imports
 WORKDIR /app
