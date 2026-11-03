@@ -17,7 +17,7 @@ variable "subdomain" {
 variable "eks_cluster_name" {
   description = "EKS Cluster name - must match infra cluster name"
   type = string
-  default = "sre-ai-agent-dev-eks-cluster"
+  default = "sre-ai-agent-cluster"
 }
 
 # kubernetes service details - must match your K8s service manifest
@@ -37,5 +37,5 @@ variable "k8s_namespace" {
 variable "elb_hostname" {
   description = "EKS LoadBalancer hostname from kubectl get svc"
   type = string
-  default = "a89d7170b820d42edb6b2366ee4ddab1-603256971.us-east-1.elb.amazonaws.com"
+  default = "k8s-sreaiage-sreaiage-54e32bbade-8b325e0065eebdd5.elb.ap-south-1.amazonaws.com"
 }

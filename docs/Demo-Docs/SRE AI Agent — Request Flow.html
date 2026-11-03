@@ -1,0 +1,291 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SRE AI Agent — Request Flow</title>
+<style>
+  :root {
+    --bg: #0D1B2A;
+    --surface: #111827;
+    --border: #1E293B;
+    --text: #F0F4F8;
+    --muted: #64748B;
+    --blue: #38BDF8;
+    --green: #4ADE80;
+    --purple: #A78BFA;
+    --orange: #FB923C;
+    --yellow: #FCD34D;
+    --red: #F87171;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --border: #CBD5E1;
+      --text: #0F172A;
+      --muted: #64748B;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 48px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin: 0 0 6px;
+    color: var(--text);
+    text-align: center;
+  }
+  p.subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0 0 32px;
+    text-align: center;
+  }
+  figure {
+    margin: 0;
+    width: 100%;
+    max-width: 980px;
+  }
+  svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  figcaption {
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<h1>SRE AI Agent — Request Flow</h1>
+<p class="subtitle">From pod crash to Root Cause Analysis</p>
+
+<figure>
+<svg viewBox="0 0 960 1320" role="img" aria-label="Request flow from chaoskube killing a pod, through Promtail, Grafana Cloud alert webhook, NLB, FastAPI, and the LangGraph 5-node pipeline, to the RCA written to pgvector" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <!-- Arrow markers -->
+  <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <polygon points="0,0 8,3 0,6" fill="#38BDF8"/>
+  </marker>
+  <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <polygon points="0,0 8,3 0,6" fill="#4ADE80"/>
+  </marker>
+  <marker id="arr-purple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <polygon points="0,0 8,3 0,6" fill="#A78BFA"/>
+  </marker>
+  <marker id="arr-orange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <polygon points="0,0 8,3 0,6" fill="#FB923C"/>
+  </marker>
+  <marker id="arr-muted" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <polygon points="0,0 8,3 0,6" fill="#64748B"/>
+  </marker>
+  <marker id="arr-yellow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <polygon points="0,0 8,3 0,6" fill="#FCD34D"/>
+  </marker>
+</defs>
+
+<!-- ═══════════ PHASE 1: CHAOS / EVENT ═══════════ -->
+<rect x="20" y="20" width="920" height="200" rx="12" fill="#0F1A12" stroke="#166534" stroke-width="1.5"/>
+<text x="48" y="50" font-family="monospace" font-size="11" fill="#4ADE80" font-weight="600" letter-spacing="2">PHASE 1 — CHAOS &amp; DETECTION</text>
+
+<!-- chaoskube box -->
+<rect x="60" y="68" width="180" height="80" rx="8" fill="#1a0a0a" stroke="#F87171" stroke-width="1.5"/>
+<text x="150" y="96" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#F87171">chaoskube</text>
+<text x="150" y="114" text-anchor="middle" font-family="monospace" font-size="11" fill="#94A3B8">kills pod every 2 min</text>
+<text x="150" y="130" text-anchor="middle" font-family="monospace" font-size="11" fill="#94A3B8">in chaos namespace</text>
+
+<!-- arrow chaoskube → pod logs -->
+<line x1="240" y1="108" x2="304" y2="108" stroke="#F87171" stroke-width="1.5" marker-end="url(#arr-muted)" stroke-dasharray="4,3"/>
+
+<!-- Promtail box -->
+<rect x="305" y="68" width="180" height="80" rx="8" fill="#101820" stroke="#38BDF8" stroke-width="1.5"/>
+<text x="395" y="93" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#38BDF8">Promtail DaemonSet</text>
+<text x="395" y="111" text-anchor="middle" font-family="monospace" font-size="11" fill="#94A3B8">tails /var/log on</text>
+<text x="395" y="127" text-anchor="middle" font-family="monospace" font-size="11" fill="#94A3B8">every EKS node</text>
+
+<!-- label on dashed arrow -->
+<text x="270" y="102" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#F87171">pod crash</text>
+
+<!-- arrow Promtail → Grafana Cloud -->
+<line x1="485" y1="108" x2="549" y2="108" stroke="#38BDF8" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+<text x="517" y="100" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#38BDF8">streams logs</text>
+
+<!-- Grafana Cloud box -->
+<rect x="550" y="68" width="200" height="80" rx="8" fill="#1a1200" stroke="#FCD34D" stroke-width="1.5"/>
+<text x="650" y="93" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#FCD34D">Grafana Cloud</text>
+<text x="650" y="111" text-anchor="middle" font-family="monospace" font-size="11" fill="#94A3B8">Prometheus: PodRestartRateHigh</text>
+<text x="650" y="127" text-anchor="middle" font-family="monospace" font-size="11" fill="#94A3B8">rule fires after 3 restarts</text>
+
+<!-- arrow Grafana Cloud → NLB (down) -->
+<line x1="650" y1="148" x2="650" y2="186" stroke="#FCD34D" stroke-width="1.5"/>
+<line x1="650" y1="186" x2="480" y2="186" stroke="#FCD34D" stroke-width="1.5"/>
+<line x1="480" y1="186" x2="480" y2="240" stroke="#FCD34D" stroke-width="1.5" marker-end="url(#arr-yellow)"/>
+<text x="580" y="200" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#FCD34D">webhook POST /agent/triage</text>
+
+<!-- ═══════════ PHASE 2: INGRESS ═══════════ -->
+<rect x="20" y="225" width="920" height="130" rx="12" fill="#080F1A" stroke="#1E40AF" stroke-width="1.5"/>
+<text x="48" y="254" font-family="monospace" font-size="11" fill="#60A5FA" font-weight="600" letter-spacing="2">PHASE 2 — INGRESS  (AWS ap-south-1 · EKS)</text>
+
+<!-- NLB box -->
+<rect x="320" y="268" width="180" height="64" rx="8" fill="#101C30" stroke="#2563EB" stroke-width="1.5"/>
+<text x="410" y="294" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#93C5FD">NLB</text>
+<text x="410" y="312" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">Network Load Balancer</text>
+
+<!-- arrow NLB → FastAPI -->
+<line x1="500" y1="300" x2="564" y2="300" stroke="#4ADE80" stroke-width="1.5" marker-end="url(#arr-green)"/>
+<text x="532" y="292" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#4ADE80">routes to svc</text>
+
+<!-- FastAPI box -->
+<rect x="565" y="268" width="200" height="64" rx="8" fill="#0F2A1A" stroke="#16A34A" stroke-width="1.5"/>
+<text x="665" y="291" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#4ADE80">FastAPI Pod</text>
+<text x="665" y="307" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">app_nodes (t3.small)</text>
+<text x="665" y="322" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">POST /agent/triage</text>
+
+<!-- arrow FastAPI → LangGraph (down) -->
+<line x1="665" y1="332" x2="665" y2="368" stroke="#A78BFA" stroke-width="2" marker-end="url(#arr-purple)"/>
+<text x="700" y="356" font-family="sans-serif" font-size="10" fill="#A78BFA">invokes agent</text>
+
+<!-- ═══════════ PHASE 3: LANGGRAPH PIPELINE ═══════════ -->
+<rect x="20" y="380" width="920" height="690" rx="12" fill="#0E0B1F" stroke="#7C3AED" stroke-width="1.5"/>
+<text x="48" y="410" font-family="monospace" font-size="11" fill="#A78BFA" font-weight="600" letter-spacing="2">PHASE 3 — LANGGRAPH AGENT PIPELINE  (agent_nodes, taint: workload=ai-agent:NoSchedule)</text>
+
+<!-- ── NODE 1: alert_parser ── -->
+<rect x="60" y="425" width="840" height="100" rx="8" fill="#1a1228" stroke="#6D28D9" stroke-width="1"/>
+<rect x="60" y="425" width="8" height="100" rx="4" fill="#A78BFA"/>
+<text x="110" y="452" font-family="sans-serif" font-size="15" font-weight="700" fill="#C4B5FD">① alert_parser</text>
+<text x="110" y="472" font-family="sans-serif" font-size="12" fill="#94A3B8">Input: raw Grafana webhook JSON  →  extracts: alertname, pod name, namespace, severity</text>
+<text x="110" y="492" font-family="monospace" font-size="11" fill="#7C3AED">{"alertname":"PodRestartRateHigh","pod":"sre-ai-agent-7d9f","namespace":"sre-ai-agent","severity":"critical"}</text>
+<text x="110" y="510" font-family="sans-serif" font-size="11" fill="#64748B">Builds structured AgentState dict passed to every downstream node</text>
+
+<!-- arrow node 1 → 2 -->
+<line x1="480" y1="525" x2="480" y2="545" stroke="#A78BFA" stroke-width="2" marker-end="url(#arr-purple)"/>
+
+<!-- ── NODE 2: log_fetcher ── -->
+<rect x="60" y="546" width="840" height="120" rx="8" fill="#0A1628" stroke="#1D4ED8" stroke-width="1.5"/>
+<rect x="60" y="546" width="8" height="120" rx="4" fill="#38BDF8"/>
+<text x="110" y="573" font-family="sans-serif" font-size="15" font-weight="700" fill="#38BDF8">② log_fetcher</text>
+<text x="110" y="593" font-family="sans-serif" font-size="12" fill="#94A3B8">Calls Kubernetes API in-cluster using ServiceAccount token mounted at /var/run/secrets/…</text>
+
+<!-- RBAC detail box inside node 2 -->
+<rect x="110" y="600" width="380" height="50" rx="6" fill="#060D1A" stroke="#1D4ED8" stroke-width="1"/>
+<text x="126" y="619" font-family="monospace" font-size="11" fill="#60A5FA">ClusterRole: get pods, get pods/log</text>
+<text x="126" y="635" font-family="monospace" font-size="11" fill="#475569">kubectl logs &lt;pod&gt; -n sre-ai-agent --previous</text>
+<text x="126" y="651" font-family="monospace" font-size="10" fill="#334155">NOTE: pods and pods/log are separate RBAC resources</text>
+
+<text x="510" y="620" font-family="sans-serif" font-size="12" fill="#94A3B8">Output: last 100 log lines</text>
+<text x="510" y="638" font-family="sans-serif" font-size="12" fill="#94A3B8">captured BEFORE next pod restart</text>
+<text x="510" y="656" font-family="monospace" font-size="10" fill="#38BDF8">→ stored in AgentState["raw_logs"]</text>
+
+<!-- arrow node 2 → 3 -->
+<line x1="480" y1="666" x2="480" y2="686" stroke="#A78BFA" stroke-width="2" marker-end="url(#arr-purple)"/>
+
+<!-- ── NODE 3: runbook_retriever ── -->
+<rect x="60" y="687" width="840" height="110" rx="8" fill="#1E1B4B" stroke="#3730A3" stroke-width="1"/>
+<rect x="60" y="687" width="8" height="110" rx="4" fill="#818CF8"/>
+<text x="110" y="714" font-family="sans-serif" font-size="15" font-weight="700" fill="#818CF8">③ runbook_retriever</text>
+<text x="110" y="734" font-family="sans-serif" font-size="12" fill="#94A3B8">Embeds the alertname using fastembed (BAAI/bge-small-en-v1.5, 384-dim, local — no API call)</text>
+<text x="110" y="752" font-family="sans-serif" font-size="12" fill="#94A3B8">Runs ivfflat cosine similarity search against pgvector (pg17, EBS PVC) — 14 runbook chunks indexed</text>
+
+<!-- pgvector callout -->
+<rect x="110" y="760" width="360" height="28" rx="6" fill="#0D0F2A" stroke="#3730A3" stroke-width="1"/>
+<text x="126" y="778" font-family="monospace" font-size="11" fill="#6366F1">pgvector: SELECT … ORDER BY embedding &lt;=&gt; $1 LIMIT 3</text>
+
+<text x="490" y="775" font-family="sans-serif" font-size="12" fill="#94A3B8">Output: top-3 runbook chunks</text>
+<text x="490" y="791" font-family="monospace" font-size="10" fill="#818CF8">→ AgentState["runbooks"]</text>
+
+<!-- arrow node 3 → 4 -->
+<line x1="480" y1="797" x2="480" y2="817" stroke="#A78BFA" stroke-width="2" marker-end="url(#arr-purple)"/>
+
+<!-- ── NODE 4: diagnoser ── -->
+<rect x="60" y="818" width="840" height="110" rx="8" fill="#1a1200" stroke="#B45309" stroke-width="1"/>
+<rect x="60" y="818" width="8" height="110" rx="4" fill="#FCD34D"/>
+<text x="110" y="845" font-family="sans-serif" font-size="15" font-weight="700" fill="#FCD34D">④ diagnoser</text>
+<text x="110" y="865" font-family="sans-serif" font-size="12" fill="#94A3B8">Sends prompt to Gemini gemini-1.5-flash (free tier, 1500 req/day) with:</text>
+<text x="110" y="883" font-family="monospace" font-size="11" fill="#B45309">  raw_logs  +  runbook_chunks  +  alert_metadata</text>
+<text x="110" y="899" font-family="sans-serif" font-size="12" fill="#94A3B8">LLM identifies probable root cause and recommends remediation steps</text>
+
+<rect x="110" y="906" width="380" height="16" rx="4" fill="#0A0800" stroke="#B45309" stroke-width="1"/>
+<text x="126" y="918" font-family="monospace" font-size="10" fill="#78350F">Prompt: "Given these logs and runbooks, what caused the restart?"</text>
+
+<text x="510" y="910" font-family="sans-serif" font-size="12" fill="#94A3B8">Output: diagnosis string</text>
+<text x="510" y="926" font-family="monospace" font-size="10" fill="#FCD34D">→ AgentState["diagnosis"]</text>
+
+<!-- arrow node 4 → 5 -->
+<line x1="480" y1="928" x2="480" y2="948" stroke="#A78BFA" stroke-width="2" marker-end="url(#arr-purple)"/>
+
+<!-- ── NODE 5: rca_writer ── -->
+<rect x="60" y="949" width="840" height="100" rx="8" fill="#0F2A1A" stroke="#166534" stroke-width="1.5"/>
+<rect x="60" y="949" width="8" height="100" rx="4" fill="#4ADE80"/>
+<text x="110" y="976" font-family="sans-serif" font-size="15" font-weight="700" fill="#4ADE80">⑤ rca_writer</text>
+<text x="110" y="996" font-family="sans-serif" font-size="12" fill="#94A3B8">Structures final RCA report: alert metadata + diagnosis + raw_logs + runbooks + timestamp</text>
+<text x="110" y="1014" font-family="sans-serif" font-size="12" fill="#94A3B8">Writes to pgvector (RCA history table) — also embeds summary for future RAG retrieval</text>
+<text x="110" y="1032" font-family="sans-serif" font-size="12" fill="#94A3B8">Returns JSON response to FastAPI → HTTP 200 back to Grafana webhook</text>
+<text x="110" y="1048" font-family="monospace" font-size="10" fill="#4ADE80">{"status":"ok","rca_id":"…","diagnosis":"…","confidence":0.87}</text>
+
+<!-- ═══════════ PHASE 4: OUTPUTS ═══════════ -->
+<rect x="20" y="1090" width="920" height="200" rx="12" fill="#0A1628" stroke="#166534" stroke-width="1.5"/>
+<text x="48" y="1118" font-family="monospace" font-size="11" fill="#4ADE80" font-weight="600" letter-spacing="2">PHASE 4 — OUTPUTS</text>
+
+<!-- Three output boxes -->
+<rect x="60" y="1130" width="240" height="130" rx="8" fill="#0F2A1A" stroke="#166534" stroke-width="1"/>
+<text x="180" y="1155" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#4ADE80">RCA Dashboard</text>
+<text x="180" y="1175" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#94A3B8">GET /triage?id=…</text>
+<text x="180" y="1193" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">Root cause, raw logs,</text>
+<text x="180" y="1209" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">runbooks used, confidence</text>
+<text x="180" y="1227" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">SLI: p99 &lt; 30s</text>
+<text x="180" y="1245" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">SLO: success rate &gt; 99%</text>
+
+<rect x="360" y="1130" width="240" height="130" rx="8" fill="#1E1B4B" stroke="#3730A3" stroke-width="1"/>
+<text x="480" y="1155" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#818CF8">pgvector history</text>
+<text x="480" y="1175" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#94A3B8">rca_history table</text>
+<text x="480" y="1193" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">Embedded RCA summaries</text>
+<text x="480" y="1209" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">feed future runbook_retriever</text>
+<text x="480" y="1227" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">RAG calls → system learns</text>
+<text x="480" y="1245" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">from past incidents</text>
+
+<rect x="660" y="1130" width="240" height="130" rx="8" fill="#1a1200" stroke="#B45309" stroke-width="1"/>
+<text x="780" y="1155" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#FCD34D">Grafana / Loki</text>
+<text x="780" y="1175" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#94A3B8">Prometheus metrics</text>
+<text x="780" y="1193" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">triage_latency_seconds</text>
+<text x="780" y="1209" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">triage_success_total</text>
+<text x="780" y="1227" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">Loki: all agent logs</text>
+<text x="780" y="1245" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#64748B">searchable in Cloud</text>
+
+<!-- arrows from rca_writer down to outputs -->
+<line x1="200" y1="1049" x2="200" y2="1090" stroke="#4ADE80" stroke-width="1" stroke-dasharray="4,3"/>
+<line x1="200" y1="1090" x2="200" y2="1130" stroke="#4ADE80" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+<line x1="480" y1="1049" x2="480" y2="1130" stroke="#818CF8" stroke-width="1.5" marker-end="url(#arr-muted)"/>
+
+<line x1="780" y1="1049" x2="780" y2="1090" stroke="#FCD34D" stroke-width="1" stroke-dasharray="4,3"/>
+<line x1="780" y1="1090" x2="780" y2="1130" stroke="#FCD34D" stroke-width="1.5" marker-end="url(#arr-yellow)"/>
+
+</svg>
+<figcaption>
+  chaoskube kills a pod → Promtail streams the crash logs to Grafana Cloud → Prometheus alert fires webhook POST to NLB →
+  FastAPI receives and invokes LangGraph → 5 nodes run in sequence: parse alert → fetch live pod logs via RBAC → retrieve runbooks from pgvector →
+  Gemini diagnoses root cause → RCA written to pgvector and returned as JSON.
+  The critical dependency: <strong>log_fetcher must run before the next chaoskube kill</strong> (2 min window).
+</figcaption>
+</figure>
+
+</body>
+</html>
+
+</body></html>

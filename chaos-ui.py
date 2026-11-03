@@ -32,7 +32,7 @@ HTML = """
   <pre id="out">Click a button to begin...</pre>
 
   <script>
-    const AGENT = "http://k8s-sreaiage-sreaiage-6505db1ad3-05d4f1f1bfd7cacb.elb.ap-south-1.amazonaws.com";
+    const AGENT = "http://k8s-sreaiage-sreaiage-4090e2247d-edfb6ed9b022f889.elb.ap-south-1.amazonaws.com";
 
     function killPod() {
       document.getElementById("out").innerText = "Killing pod...";
